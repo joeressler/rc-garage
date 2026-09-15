@@ -91,6 +91,13 @@ The **RC Car & Rock Crawler Garage & Setup Logger** is a community-driven, telem
 - **Resolution & ECC:** Employs Error Correction Level 'H' (30% damage tolerance) to maintain readability despite mud, grease, and scratch exposure on the track.
 - **Canonical Routing:** Embeds short URLs pointing to `/s/:slug`, rendering an ultra-fast, mobile-optimized read-only pit inspection sheet without requiring native app downloads.
 
+### 2.5 Admin Console & Community Moderation
+- **Operator Roles:** Accounts carry a `role` of `driver`, `moderator`, or `admin`. Moderators and admins access the Scrutineering Desk (`/admin`); only admins may change roles or hard-delete setups.
+- **Driver Suspension:** Operators can suspend abusive accounts with a required reason. Suspended drivers cannot authenticate or perform authenticated mutations until reinstated.
+- **Content Moderation:** Operators can force-hide (`is_hidden`) public setups so they disappear from the community feed and QR inspection routes, or (admins) permanently delete setups while preserving fork lineage via `ON DELETE SET NULL`.
+- **Audit Trail:** Every moderation mutation writes an immutable `moderation_audit_log` row (actor, action, target, reason, metadata, timestamp) queryable from the admin console.
+- **Bootstrap:** Optional `BOOTSTRAP_ADMIN_EMAIL` promotes the matching account to `admin` idempotently when no admin yet exists. The last remaining admin cannot be demoted or suspended.
+
 ---
 
 ## 3. Visual & UI Theme: "The Industrial Garage Pit-Mat"
@@ -299,6 +306,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-rc_garage_admin}:${POSTGRES_PASSWORD}@rc-db:5432/${POSTGRES_DB:-rc_garage_prod}?schema=public
       JWT_SECRET: ${JWT_SECRET:?JWT Secret must be configured}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-7d}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
       APP_BASE_URL: ${APP_BASE_URL:-http://127.0.0.1:3742}
     depends_on:
       rc-db:
@@ -690,9 +698,17 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     avatar_url TEXT,
     bio VARCHAR(250),
+    role VARCHAR(20) NOT NULL DEFAULT 'driver'
+        CHECK (role IN ('driver', 'moderator', 'admin')),
+    is_suspended BOOLEAN NOT NULL DEFAULT FALSE,
+    suspended_at TIMESTAMP WITH TIME ZONE,
+    suspension_reason VARCHAR(500),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
+
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_suspended ON users(is_suspended) WHERE is_suspended = TRUE;
 
 -- -----------------------------------------------------------------------------
 -- Vehicles Table (Digital Garage Fleet)
@@ -723,6 +739,9 @@ CREATE TABLE setups (
     title VARCHAR(100) NOT NULL,
     description TEXT,
     is_public BOOLEAN DEFAULT TRUE NOT NULL,
+    is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+    hidden_at TIMESTAMP WITH TIME ZONE,
+    hidden_reason VARCHAR(500),
     
     -- Provenance & Fork Lineage Pointers
     forked_from_setup_id UUID REFERENCES setups(id) ON DELETE SET NULL,
@@ -753,10 +772,11 @@ CREATE INDEX idx_setups_user_id ON setups(user_id);
 CREATE INDEX idx_setups_forked_from ON setups(forked_from_setup_id);
 CREATE INDEX idx_setups_root_ancestor ON setups(root_ancestor_setup_id);
 CREATE INDEX idx_setups_qr_slug ON setups(qr_slug);
-CREATE INDEX idx_setups_feed_composite ON setups(is_public, created_at DESC) WHERE is_public = TRUE;
+CREATE INDEX idx_setups_feed_composite ON setups(is_public, created_at DESC) WHERE is_public = TRUE AND is_hidden = FALSE;
 CREATE INDEX idx_setups_surface ON setups(surface_type);
 CREATE INDEX idx_setups_tags_gin ON setups USING GIN(tags);
 CREATE INDEX idx_setups_settings_gin ON setups USING GIN(settings);
+CREATE INDEX idx_setups_hidden ON setups(is_hidden) WHERE is_hidden = TRUE;
 
 -- -----------------------------------------------------------------------------
 -- Setup Likes Table (Community Validation)
@@ -769,6 +789,23 @@ CREATE TABLE setup_likes (
 );
 
 CREATE INDEX idx_setup_likes_setup_id ON setup_likes(setup_id);
+
+-- -----------------------------------------------------------------------------
+-- Moderation Audit Log (Immutable Operator Actions)
+-- -----------------------------------------------------------------------------
+CREATE TABLE moderation_audit_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    actor_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    action VARCHAR(40) NOT NULL,
+    target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('user', 'setup')),
+    target_id UUID NOT NULL,
+    reason VARCHAR(500),
+    metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE INDEX idx_moderation_audit_created ON moderation_audit_log(created_at DESC);
+CREATE INDEX idx_moderation_audit_target ON moderation_audit_log(target_type, target_id);
 ```
 
 ---
@@ -824,6 +861,14 @@ All endpoints are exposed under the base path: `/api/garage`.
 | `GET` | `/setups/:id/qr` | None | Query: `?format=svg\|png&size=512` | Binary Stream or `{ dataUrl, directUrl }` | `200 OK` | Outputs physical chassis sticker QR code for setup. |
 | `GET` | `/feed` | None | Query: `?model=&class=&surface=&tag=&cursor=&limit=20` | `PaginatedFeedResponse` | `200 OK` | Community setup discovery feed with multi-vector filters. |
 | `POST` | `/setups/:id/like`| Bearer JWT | None (Param: `id`) | `{ liked: boolean, likeCount: number }` | `200 OK` | Toggles star/like endorsement on a setup sheet. |
+| `GET` | `/admin/overview` | Bearer JWT (moderator\|admin) | None | `{ userCount, setupCount, publicSetupCount, hiddenSetupCount, suspendedUserCount, likes24h }` | `200 OK` | Admin console KPI snapshot. |
+| `GET` | `/admin/users` | Bearer JWT (moderator\|admin) | Query: `?q=&role=&suspended=&cursor=&limit=` | `PaginatedAdminUsers` | `200 OK` | Search and filter driver accounts for moderation. |
+| `PATCH` | `/admin/users/:id/suspension` | Bearer JWT (moderator\|admin) | `{ suspend, reason? }` | `AdminUserSummary` | `200 OK` | Suspend or reinstate a driver (reason required on suspend). |
+| `PATCH` | `/admin/users/:id/role` | Bearer JWT (**admin**) | `{ role }` | `AdminUserSummary` | `200 OK` | Promote/demote staff roles; blocked for last admin / self-lockout. |
+| `GET` | `/admin/setups` | Bearer JWT (moderator\|admin) | Query: `?q=&hidden=&isPublic=&authorCallsign=&cursor=&limit=` | `PaginatedAdminSetups` | `200 OK` | Review public, private, and hidden setups. |
+| `PATCH` | `/admin/setups/:id/visibility` | Bearer JWT (moderator\|admin) | `{ hide, reason? }` | `AdminSetupSummary` | `200 OK` | Force-hide or restore a setup from public surfaces. |
+| `DELETE` | `/admin/setups/:id` | Bearer JWT (**admin**) | `{ reason }` | `{ deleted: true, id }` | `200 OK` | Hard-delete abusive setup; writes audit row. |
+| `GET` | `/admin/audit-log` | Bearer JWT (moderator\|admin) | Query: `?cursor=&limit=` | `PaginatedAuditLog` | `200 OK` | Chronological moderation action history. |
 
 ### 6.4 The Fork Ecosystem Endpoint Contract Detail
 
@@ -866,6 +911,8 @@ export interface UserProfile {
   email: string;
   avatarUrl?: string;
   bio?: string;
+  role: 'driver' | 'moderator' | 'admin';
+  isSuspended: boolean;
   createdAt: string;
 }
 
@@ -1103,6 +1150,13 @@ export interface SetupState {
   │     │                 ├── <ForkLineageCounter />
   │     │                 └── <QuickForkAction trigger="forkModal" />
   │     │
+  │     ├── VIEW: <AdminConsoleWorkbench> (role: moderator | admin)
+  │     │     ├── <AdminOverviewPanel />
+  │     │     ├── <UserModerationTable onSuspend={openModerationModal} />
+  │     │     ├── <SetupModerationTable onHide={openModerationModal} />
+  │     │     ├── <ModerationAuditLogPanel />
+  │     │     └── <ModerationActionModal requiresReason />
+  │     │
   │     └── MODAL: <ForkDiffInspectorModal>
   │           ├── <SideBySideSpecTable parent={parentSetup} fork={activeSetup} />
   │           └── <DeltaHighlighter changedFields={['fdr', 'shockOil', 'brassGrams']} />
@@ -1131,3 +1185,4 @@ export interface SetupState {
 - **Network Isolation:** PostgreSQL port 5432 is completely unexposed to the host and WAN; only accessible over the internal Docker bridge network (`rc-isolated-net`).
 - **Host Loopback Binding:** Frontend (3742) and Backend (5742) bind strictly to `127.0.0.1`, forcing all public ingress through the host Nginx reverse proxy with TLS termination, rate limiting, and HTTP security headers. Non-standard ports avoid collisions with common dev services (3000/5000/8000/8080).
 - **Unprivileged Execution:** Both frontend (UID 101 `nginx`) and backend (UID 1000 `node`) run as non-root users inside their respective containers.
+- **Role-Gated Moderation:** `/api/garage/admin/*` endpoints require JWT authentication plus `moderator` or `admin` roles (`RolesGuard`). Suspended accounts are denied authentication and mutating garage actions. Optional `BOOTSTRAP_ADMIN_EMAIL` seeds the first admin without hard-coding credentials in source.
