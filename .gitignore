@@ -1,0 +1,17 @@
+# Dependencies and build output stay out of version control
+node_modules/
+dist/
+build/
+
+# Local environment overrides (the committed template is .env.example)
+.env
+
+# Framework and editor noise
+coverage/
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# Docker and OS artifacts
+*.pid

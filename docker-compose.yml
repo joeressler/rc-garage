@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------------------
+  # PostgreSQL Database Service
+  # Isolated within internal bridge network; no public host ports exposed
+  # ----------------------------------------------------------------------------
+  rc-db:
+    image: postgres:16-alpine
+    container_name: rc-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rc_garage_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-rc_garage_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password must be supplied}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - rc-isolated-net
+    command: >
+      postgres
+      -c shared_buffers=64MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=16MB
+      -c effective_cache_size=128MB
+      -c max_connections=40
+      -c checkpoint_completion_target=0.7
+      -c wal_buffers=2MB
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ----------------------------------------------------------------------------
+  # NestJS REST API Backend Service
+  # Bound exclusively to host loopback interface on port 5742
+  # ----------------------------------------------------------------------------
+  rc-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: rc-backend:prod
+    container_name: rc-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5742:5742"
+    environment:
+      NODE_ENV: production
+      PORT: 5742
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rc_garage_admin}:${POSTGRES_PASSWORD}@rc-db:5432/${POSTGRES_DB:-rc_garage_prod}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?JWT Secret must be configured}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-7d}
+      APP_BASE_URL: ${APP_BASE_URL:-http://127.0.0.1:3742}
+    depends_on:
+      rc-db:
+        condition: service_healthy
+    networks:
+      - rc-isolated-net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+        reservations:
+          cpus: '0.15'
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5742/api/garage/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ----------------------------------------------------------------------------
+  # React SPA Static Frontend Service (Nginx Unprivileged)
+  # Bound exclusively to host loopback interface on port 3742
+  # ----------------------------------------------------------------------------
+  rc-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: rc-frontend:prod
+    container_name: rc-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3742:3742"
+    depends_on:
+      - rc-backend
+    networks:
+      - rc-isolated-net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
+
+# ------------------------------------------------------------------------------
+# Isolated Bridge Network and Persistent Volumes
+# ------------------------------------------------------------------------------
+networks:
+  rc-isolated-net:
+    driver: bridge
+    name: rc-isolated-net
+
+volumes:
+  pg_data:
+    name: rc_garage_pg_data
+    driver: local

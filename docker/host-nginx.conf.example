@@ -1,0 +1,78 @@
+# Host-level Nginx reverse proxy for rc-garage.community (example config).
+# Purpose: terminate public TLS at the host edge and fan out to loopback-only
+# containers, shielding Postgres and applying strict auth rate limits.
+# Install to /etc/nginx/sites-available/rc-garage.conf and provision certs via Certbot.
+
+# Rate limiting zones to protect NestJS auth routes on low-tier EC2 instances
+limit_req_zone $binary_remote_addr zone=api_limit:10m rate=15r/s;
+limit_req_zone $binary_remote_addr zone=auth_limit:10m rate=3r/s;
+
+server {
+    listen 80;
+    server_name rc-garage.community www.rc-garage.community;
+
+    # Certbot ACME challenge location
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name rc-garage.community www.rc-garage.community;
+
+    # SSL Certificates
+    ssl_certificate /etc/letsencrypt/live/rc-garage.community/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/rc-garage.community/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    # Performance optimizations
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml image/svg+xml;
+    gzip_min_length 1024;
+
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+
+    # API Backend Reverse Proxy (non-standard 5742 avoids host collisions)
+    location /api/ {
+        limit_req zone=api_limit burst=20 nodelay;
+        proxy_pass http://127.0.0.1:5742;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # Strict Rate Limit for Auth Endpoints
+    location /api/garage/auth/ {
+        limit_req zone=auth_limit burst=5 nodelay;
+        proxy_pass http://127.0.0.1:5742;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Static Frontend SPA Reverse Proxy (non-standard 3742 avoids host collisions)
+    location / {
+        proxy_pass http://127.0.0.1:3742;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
