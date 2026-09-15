@@ -71,4 +71,4 @@ Implement the community discovery feed UI, side-by-side fork diff inspector, phy
 1. Community Feed allows seamless browsing, filtering, and liking of setups without reloads.
 2. Fork Diff Inspector accurately displays mechanical deviations between parent and child setups.
 3. QR sticker downloads produce clean 300 DPI assets formatted for 1.5" physical printing.
-4. All 12 milestone specifications provide complete, unambiguous guidance for future implementation agents.
+4. Milestone 12 UI and integration checks pass; subsequent admin moderation capabilities are specified separately in Milestone 13.

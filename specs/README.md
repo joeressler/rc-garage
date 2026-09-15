@@ -20,6 +20,7 @@ This directory contains the sequential milestone specification files for buildin
 | **10** | [`10_GARAGE_FLEET_MANAGEMENT_UI.md`](./10_GARAGE_FLEET_MANAGEMENT_UI.md) | Garage UI & Store | `useGarageStore`, chassis bay cards, fleet grid, vehicle creation modal, and active vehicle selector. |
 | **11** | [`11_SETUP_SHEET_CLIPBOARD_AND_CALCULATOR.md`](./11_SETUP_SHEET_CLIPBOARD_AND_CALCULATOR.md) | Setup Editor & Math Store | `useSetupStore`, clipboard header clamp with scrutineering stamp, live FDR sliders, CoG balance bars, and shock dyno cards. |
 | **12** | [`12_COMMUNITY_FEED_DIFF_AND_PRINTER.md`](./12_COMMUNITY_FEED_DIFF_AND_PRINTER.md) | Community UI & Printer | Community feed workbench, filter drawer, side-by-side fork diff inspector, 1.5" vinyl chassis sticker printer modal, and E2E verification. |
+| **13** | [`13_ADMIN_CONSOLE_AND_MODERATION.md`](./13_ADMIN_CONSOLE_AND_MODERATION.md) | Admin Console & Moderation | Role-gated Scrutineering Desk, user suspend/reinstate, setup force-hide/delete, JWT role guards, moderation audit log, and admin E2E coverage. |
 
 ---
 

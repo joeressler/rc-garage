@@ -61,6 +61,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-rc_garage_admin}:${POSTGRES_PASSWORD}@rc-db:5432/${POSTGRES_DB:-rc_garage_prod}?schema=public
       JWT_SECRET: ${JWT_SECRET:?JWT Secret must be configured}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-7d}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
       APP_BASE_URL: ${APP_BASE_URL:-http://127.0.0.1:3742}
     depends_on:
       rc-db:
