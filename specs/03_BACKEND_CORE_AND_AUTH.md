@@ -44,7 +44,7 @@ Establish the foundational NestJS backend structure, global validation pipe usin
     "timestamp": "2026-09-15T12:00:00.000Z"
   }
   ```
-- Bind port to environment `PORT` (default 5000).
+- Bind port to environment `PORT` (default 5742, non-standard to avoid collisions).
 
 ### 3.2 Zod Validation Pipe (`backend/src/common/pipes/zod-validation.pipe.ts`)
 - Intercept incoming request payloads against passed Zod schemas.

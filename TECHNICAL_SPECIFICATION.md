@@ -18,7 +18,7 @@ The **RC Car & Rock Crawler Garage & Setup Logger** is a community-driven, telem
 |  |   - Static Asset Caching & Rate Limiting                                    |  |
 |  +--------------------+------------------------------------+-------------------+  |
 |                       |                                    |                      |
-|         Proxy Pass    | 127.0.0.1:3000                     | 127.0.0.1:5000       |
+|         Proxy Pass    | 127.0.0.1:3742                     | 127.0.0.1:5742       |
 |         Location /    v                                    v Location /api/       |
 |  +-----------------------------------------------------------------------------+  |
 |  |                        Docker Engine Bridge Network                         |  |
@@ -175,8 +175,8 @@ COPY --chown=nginx:nginx docker/frontend-nginx.conf /etc/nginx/conf.d/default.co
 # Copy compiled SPA bundle from builder stage
 COPY --from=builder --chown=nginx:nginx /usr/src/app/dist /usr/share/nginx/html
 
-# Expose internal unprivileged container port
-EXPOSE 3000
+# Expose internal unprivileged container port (non-standard to avoid host collisions)
+EXPOSE 3742
 
 STOPSIGNAL SIGQUIT
 
@@ -225,9 +225,9 @@ COPY --from=builder --chown=node:node /usr/src/app/dist ./dist
 
 # Environmental constraints
 ENV NODE_ENV=production
-ENV PORT=5000
+ENV PORT=5742
 
-EXPOSE 5000
+EXPOSE 5742
 
 # Enforce V8 heap size bounds aligned with container memory cap (256MB limit -> 192MB heap)
 CMD ["node", "--max-old-space-size=192", "dist/main.js"]
@@ -282,7 +282,7 @@ services:
 
   # ----------------------------------------------------------------------------
   # NestJS REST API Backend Service
-  # Bound exclusively to host loopback interface on port 5000
+  # Bound exclusively to host loopback interface on port 5742 (non-standard to avoid collisions)
   # ----------------------------------------------------------------------------
   rc-backend:
     build:
@@ -292,14 +292,14 @@ services:
     container_name: rc-backend
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5000:5000"
+      - "127.0.0.1:5742:5742"
     environment:
       NODE_ENV: production
-      PORT: 5000
+      PORT: 5742
       DATABASE_URL: postgresql://${POSTGRES_USER:-rc_garage_admin}:${POSTGRES_PASSWORD}@rc-db:5432/${POSTGRES_DB:-rc_garage_prod}?schema=public
       JWT_SECRET: ${JWT_SECRET:?JWT Secret must be configured}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-7d}
-      APP_BASE_URL: ${APP_BASE_URL:-http://127.0.0.1:3000}
+      APP_BASE_URL: ${APP_BASE_URL:-http://127.0.0.1:3742}
     depends_on:
       rc-db:
         condition: service_healthy
@@ -314,7 +314,7 @@ services:
           cpus: '0.15'
           memory: 128M
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5000/api/garage/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5742/api/garage/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -322,7 +322,7 @@ services:
 
   # ----------------------------------------------------------------------------
   # React SPA Static Frontend Service (Nginx Unprivileged)
-  # Bound exclusively to host loopback interface on port 3000
+  # Bound exclusively to host loopback interface on port 3742 (non-standard to avoid collisions)
   # ----------------------------------------------------------------------------
   rc-frontend:
     build:
@@ -332,7 +332,7 @@ services:
     container_name: rc-frontend
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3742:3742"
     depends_on:
       - rc-backend
     networks:
@@ -406,7 +406,7 @@ server {
     # API Backend Reverse Proxy
     location /api/ {
         limit_req zone=api_limit burst=20 nodelay;
-        proxy_pass http://127.0.0.1:5000;
+        proxy_pass http://127.0.0.1:5742;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -420,7 +420,7 @@ server {
     # Strict Rate Limit for Auth Endpoints
     location /api/garage/auth/ {
         limit_req zone=auth_limit burst=5 nodelay;
-        proxy_pass http://127.0.0.1:5000;
+        proxy_pass http://127.0.0.1:5742;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -429,7 +429,7 @@ server {
 
     # Static Frontend SPA Reverse Proxy
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3742;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -1129,5 +1129,5 @@ export interface SetupState {
 
 ### 9.2 Security & Data Isolation
 - **Network Isolation:** PostgreSQL port 5432 is completely unexposed to the host and WAN; only accessible over the internal Docker bridge network (`rc-isolated-net`).
-- **Host Loopback Binding:** Frontend (3000) and Backend (5000) bind strictly to `127.0.0.1`, forcing all public ingress through the host Nginx reverse proxy with TLS termination, rate limiting, and HTTP security headers.
+- **Host Loopback Binding:** Frontend (3742) and Backend (5742) bind strictly to `127.0.0.1`, forcing all public ingress through the host Nginx reverse proxy with TLS termination, rate limiting, and HTTP security headers. Non-standard ports avoid collisions with common dev services (3000/5000/8000/8080).
 - **Unprivileged Execution:** Both frontend (UID 101 `nginx`) and backend (UID 1000 `node`) run as non-root users inside their respective containers.
