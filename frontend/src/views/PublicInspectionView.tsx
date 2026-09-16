@@ -118,7 +118,7 @@ function InspectionCard({
       <span className="hex-rivet left-2 top-2" />
       <span className="hex-rivet right-2 top-2" />
 
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-anodized-blue">
             Public pit inspection
@@ -128,7 +128,7 @@ function InspectionCard({
           </h1>
           <p className="mt-2 font-mono text-xs text-readout-dim">{sheet.vehicle.name}</p>
         </div>
-        <span className="border border-hazard-orange px-2 py-1 font-display text-[11px] uppercase tracking-widest text-hazard-orange">
+        <span className="self-start whitespace-nowrap border border-hazard-orange px-2 py-1 font-display text-[11px] uppercase tracking-widest text-hazard-orange">
           {sheet.vehicle.scale} · {classLabel}
         </span>
       </div>
