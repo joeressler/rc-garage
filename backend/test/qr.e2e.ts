@@ -222,14 +222,14 @@ async function main(): Promise<void> {
     );
     assert(badSize.status === 400, `undersized QR should 400, got ${badSize.status}`);
 
-    const resolved = await requestJson<PublicInspectionSheet>(
+    const resolved = await requestJson(
       baseUrl,
       'GET',
       `/qr/resolve/${publicSetup.qrSlug}`,
     );
     assert(resolved.status === 200, `resolve public slug should 200, got ${resolved.status}`);
     assert(resolved.body.success === true, 'resolve should use the success envelope');
-    const sheet = resolved.body.data;
+    const sheet = resolved.body.data as PublicInspectionSheet;
     assert(sheet?.setupId === publicSetup.id, 'resolve should return the setup id');
     assert(sheet?.qrSlug === publicSetup.qrSlug, 'resolve should echo the chassis slug');
     assert(sheet?.shortUrl === expectedPayload, 'resolve shortUrl must match QR payload');
@@ -294,12 +294,12 @@ function decodePngQr(body: Buffer): string | null {
   return decoded?.data ?? null;
 }
 
-async function requestJson<T>(
+async function requestJson(
   baseUrl: string,
   method: string,
   path: string,
   options: { token?: string; body?: unknown } = {},
-): Promise<{ status: number; body: Envelope<T> }> {
+): Promise<{ status: number; body: Envelope<any> }> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
   };
@@ -316,7 +316,7 @@ async function requestJson<T>(
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
-  const body = (await response.json()) as Envelope<T>;
+  const body = (await response.json()) as Envelope<any>;
   return { status: response.status, body };
 }
 
