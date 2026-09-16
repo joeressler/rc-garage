@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { SetupsModule } from './modules/setups/setups.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 
 @Module({
@@ -13,6 +14,7 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
     DatabaseModule,
     AuthModule,
     VehiclesModule,
+    SetupsModule,
   ],
   controllers: [AppController],
 })
