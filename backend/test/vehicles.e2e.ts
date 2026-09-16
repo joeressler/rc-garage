@@ -59,9 +59,22 @@ async function main(): Promise<void> {
   try {
     await database.migrateUp();
 
-    const unauth = await request(baseUrl, 'GET', '/vehicles');
-    assert(unauth.status === 401, `expected 401 without JWT, got ${unauth.status}`);
-    assert(unauth.body.success === false, 'unauthenticated envelope should fail');
+    for (const [method, path] of [
+      ['GET', '/vehicles'],
+      ['POST', '/vehicles'],
+      ['GET', '/vehicles/00000000-0000-4000-8000-000000000001'],
+      ['PUT', '/vehicles/00000000-0000-4000-8000-000000000001'],
+      ['DELETE', '/vehicles/00000000-0000-4000-8000-000000000001'],
+    ] as const) {
+      const unauth = await request(baseUrl, method, path, {
+        body: method === 'POST' || method === 'PUT' ? { name: 'x' } : undefined,
+      });
+      assert(
+        unauth.status === 401,
+        `expected 401 without JWT for ${method} ${path}, got ${unauth.status}`,
+      );
+      assert(unauth.body.success === false, 'unauthenticated envelope should fail');
+    }
 
     const registerA = await request(baseUrl, 'POST', '/auth/register', {
       body: userA,
@@ -133,6 +146,11 @@ async function main(): Promise<void> {
     );
     assert(vehicle.setupCount === 0, 'new chassis should have zero setups');
     assert(vehicle.isArchived === false, 'new chassis should be active');
+
+    const invalidId = await request(baseUrl, 'GET', '/vehicles/not-a-uuid', {
+      token: tokenA,
+    });
+    assert(invalidId.status === 400, `invalid UUID should 400, got ${invalidId.status}`);
 
     const listed = await request(baseUrl, 'GET', '/vehicles', { token: tokenA });
     assert(listed.status === 200, `list failed: ${listed.status}`);
@@ -249,6 +267,21 @@ async function main(): Promise<void> {
       [vehicle.id],
     );
     assert(stillPresent.rows[0]?.is_archived === true, 'public setups must keep the chassis row');
+
+    const publicSetupRemains = await database.query(
+      `SELECT 1 FROM setups WHERE vehicle_id = $1`,
+      [vehicle.id],
+    );
+    assert(
+      publicSetupRemains.rowCount === 1,
+      'public setup sheets must survive chassis archive',
+    );
+
+    const archivedDetail = await request(baseUrl, 'GET', `/vehicles/${vehicle.id}`, {
+      token: tokenA,
+    });
+    assert(archivedDetail.status === 200, 'owner can still inspect an archived chassis');
+    assert(archivedDetail.body.data.isArchived === true, 'detail should show archived flag');
 
     const disposable = await request(baseUrl, 'POST', '/vehicles', {
       token: tokenA,
