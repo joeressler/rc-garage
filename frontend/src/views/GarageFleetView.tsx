@@ -48,38 +48,39 @@ export function GarageFleetView({ onRequestAuth }: GarageFleetViewProps) {
 
   return (
     <section>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-nitromethane">
-            Drawer 01 · Fleet Garage
-          </p>
-          <h1 className="mt-2 font-display text-4xl uppercase tracking-wide text-readout-bright">
-            Chassis Rack
-          </h1>
-          <p className="mt-2 font-mono text-xs uppercase tracking-[0.2em] text-readout-dim">
-            <span className="border border-metal-border bg-pit-black px-2 py-1 text-readout-bright">
-              {vehicles.length} {vehicles.length === 1 ? 'VEHICLE' : 'VEHICLES'}
-            </span>
-          </p>
+      <header className="mb-8 space-y-3 border-b border-metal-border pb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-nitromethane">
+              Drawer 01 · Fleet Garage
+            </p>
+            <h1 className="mt-1 font-display text-4xl uppercase tracking-wide text-readout-bright">
+              Chassis Rack
+            </h1>
+          </div>
+          {isAuthenticated ? (
+            <button
+              type="button"
+              onClick={() => setAddOpen(true)}
+              className="shrink-0 bg-hazard-orange px-4 py-2 font-display text-sm uppercase tracking-[0.2em] text-pit-black shadow-hazard-glow"
+            >
+              Add New Chassis
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onRequestAuth}
+              className="shrink-0 bg-hazard-orange px-4 py-2 font-display text-sm uppercase tracking-[0.2em] text-pit-black shadow-hazard-glow"
+            >
+              Login to register chassis
+            </button>
+          )}
         </div>
-
-        {isAuthenticated ? (
-          <button
-            type="button"
-            onClick={() => setAddOpen(true)}
-            className="bg-hazard-orange px-4 py-2 font-display text-sm uppercase tracking-[0.2em] text-pit-black shadow-hazard-glow"
-          >
-            Add New Chassis
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onRequestAuth}
-            className="bg-hazard-orange px-4 py-2 font-display text-sm uppercase tracking-[0.2em] text-pit-black shadow-hazard-glow"
-          >
-            Login to register chassis
-          </button>
-        )}
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-readout-dim">
+          <span className="border border-metal-border bg-pit-black px-2 py-1 text-readout-bright">
+            {vehicles.length} {vehicles.length === 1 ? 'VEHICLE' : 'VEHICLES'}
+          </span>
+        </p>
       </header>
 
       {error ? (
