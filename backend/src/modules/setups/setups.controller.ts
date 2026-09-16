@@ -15,6 +15,10 @@ import {
 import { Request } from 'express';
 import { AuthenticatedUser } from '../../contracts/auth.contract';
 import {
+  ForkSetupDto,
+  ForkSetupSchema,
+} from '../../contracts/fork.contract';
+import {
   CreateSetupDto,
   CreateSetupSchema,
   DeleteSetupResult,
@@ -30,6 +34,7 @@ import {
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { ForkService } from './fork.service';
 import { SetupsService } from './setups.service';
 
 interface AuthenticatedRequest extends Request {
@@ -42,7 +47,10 @@ interface OptionalAuthRequest extends Request {
 
 @Controller('setups')
 export class SetupsController {
-  constructor(private readonly setupsService: SetupsService) {}
+  constructor(
+    private readonly setupsService: SetupsService,
+    private readonly forkService: ForkService,
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -61,6 +69,16 @@ export class SetupsController {
     query: ListSetupsQuery,
   ): Promise<SetupSummary[]> {
     return this.setupsService.list(request.user.id, query.vehicleId);
+  }
+
+  @Post(':id/fork')
+  @UseGuards(JwtAuthGuard)
+  fork(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', new ZodValidationPipe(SetupIdSchema)) id: string,
+    @Body(new ZodValidationPipe(ForkSetupSchema)) dto: ForkSetupDto,
+  ): Promise<SetupEntity> {
+    return this.forkService.fork(request.user.id, id, dto);
   }
 
   @Get(':id')
