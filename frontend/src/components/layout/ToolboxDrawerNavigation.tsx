@@ -1,0 +1,43 @@
+import { NavLink } from 'react-router-dom';
+
+const DRAWERS = [
+  { to: '/garage', label: 'Fleet Garage', index: '01' },
+  { to: '/clipboard', label: 'Setup Clipboard', index: '02' },
+  { to: '/feed', label: 'Community Feed', index: '03' },
+  { to: '/stickers', label: 'QR Pit-Stickers', index: '04' },
+] as const;
+
+/**
+ * Purpose: present toolbox-drawer navigation for the four pit-mat workbenches.
+ */
+export function ToolboxDrawerNavigation() {
+  return (
+    <nav
+      aria-label="Toolbox drawers"
+      className="border-b border-metal-border bg-pit-grease/90 px-3 py-2 sm:px-5"
+    >
+      <ul className="flex gap-2 overflow-x-auto">
+        {DRAWERS.map((drawer) => (
+          <li key={drawer.to} className="shrink-0">
+            <NavLink
+              to={drawer.to}
+              className={({ isActive }) =>
+                [
+                  'flex min-w-[9.5rem] items-center gap-2 border-t-2 border-l-2 px-3 py-2 font-display text-sm uppercase tracking-[0.18em] shadow-beveled-panel transition',
+                  isActive
+                    ? 'border-hazard-orange bg-pit-steel text-hazard-orange'
+                    : 'border-pit-rubber bg-pit-black/60 text-readout-dim hover:border-metal-highlight hover:text-readout-bright',
+                ].join(' ')
+              }
+            >
+              <span className="font-mono text-[10px] text-readout-muted">
+                {drawer.index}
+              </span>
+              {drawer.label}
+            </NavLink>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}

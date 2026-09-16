@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-pit-black font-sans text-readout-bright antialiased;
+  }
+}
+
+@layer components {
+  .hex-rivet {
+    @apply pointer-events-none absolute h-2 w-2 rounded-sm border border-metal-highlight bg-pit-rubber;
+  }
+}
+
+@layer utilities {
+  .pit-mat-grid {
+    background-color: #0e1012;
+    background-image:
+      linear-gradient(rgba(61, 68, 78, 0.22) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(61, 68, 78, 0.22) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
+
+@keyframes telemetry-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(0, 255, 102, 0.55);
+  }
+  50% {
+    opacity: 0.65;
+    box-shadow: 0 0 0 6px rgba(0, 255, 102, 0);
+  }
+}
+
+.telemetry-beacon {
+  animation: telemetry-pulse 1.6s ease-in-out infinite;
+}
+
+@media print {
+  @page {
+    margin: 0;
+    size: 1.5in 1.5in;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .chassis-sticker-printer,
+  .chassis-sticker-printer * {
+    visibility: visible;
+  }
+
+  .chassis-sticker-printer {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
