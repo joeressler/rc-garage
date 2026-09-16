@@ -41,30 +41,32 @@ export const SurfaceTypeEnum = z.enum([
 
 export const GripLevelEnum = z.enum(['low', 'medium', 'high', 'extreme']);
 
-export const DrivetrainSettingsSchema = z
-  .object({
-    pinionTeeth: z
-      .number()
-      .int()
-      .min(9, 'Pinion must have at least 9 teeth')
-      .max(60),
-    spurTeeth: z
-      .number()
-      .int()
-      .min(30, 'Spur must have at least 30 teeth')
-      .max(120),
-    transmissionInternalRatio: z.number().positive().min(1.0).max(6.0),
-    calculatedFdr: z.number().positive().optional(),
-    gearPitch: GearPitchEnum.default('48P'),
-    motorKv: z.number().int().min(500).max(12000).optional(),
-    motorType: MotorTypeEnum.default('brushless_sensored'),
-    batteryCellCount: z.number().int().min(1).max(8).default(3),
-    underdriveOverdrivePercentage: z.number().min(-50).max(50).default(0),
-  })
-  .refine((data) => data.spurTeeth > data.pinionTeeth, {
+export const DrivetrainSettingsObjectSchema = z.object({
+  pinionTeeth: z
+    .number()
+    .int()
+    .min(9, 'Pinion must have at least 9 teeth')
+    .max(60),
+  spurTeeth: z
+    .number()
+    .int()
+    .min(30, 'Spur must have at least 30 teeth')
+    .max(120),
+  transmissionInternalRatio: z.number().positive().min(1.0).max(6.0),
+  calculatedFdr: z.number().positive().optional(),
+  gearPitch: GearPitchEnum.default('48P'),
+  motorKv: z.number().int().min(500).max(12000).optional(),
+  motorType: MotorTypeEnum.default('brushless_sensored'),
+  batteryCellCount: z.number().int().min(1).max(8).default(3),
+  underdriveOverdrivePercentage: z.number().min(-50).max(50).default(0),
+});
+
+export const DrivetrainSettingsSchema = DrivetrainSettingsObjectSchema.refine(
+  (data) => data.spurTeeth > data.pinionTeeth, {
     message: 'Spur gear teeth must exceed pinion gear teeth',
     path: ['spurTeeth'],
-  });
+  },
+);
 
 export const ShockSpecificationSchema = z.object({
   oilViscosityValue: z.number().positive().min(10).max(5000),
@@ -102,27 +104,27 @@ export const AxleTireSpecificationSchema = z.object({
   ventedTireRims: z.boolean().default(false),
 });
 
-export const WeightDistributionSchema = z
-  .object({
-    totalRtrWeightGrams: z.number().positive().min(200).max(25000),
-    frontAxleWeightGrams: z.number().positive(),
-    rearAxleWeightGrams: z.number().positive(),
-    frontWeightBiasPercentage: z.number().min(0).max(100).optional(),
-    rearWeightBiasPercentage: z.number().min(0).max(100).optional(),
-    batteryMountLocation: BatteryPositionEnum.default('center_low'),
-  })
-  .refine(
-    (data) =>
-      Math.abs(
-        data.totalRtrWeightGrams -
-          (data.frontAxleWeightGrams + data.rearAxleWeightGrams),
-      ) <= 10,
-    {
-      message:
-        'Front plus rear axle weights must equal total ready-to-run weight within a 10g tolerance',
-      path: ['totalRtrWeightGrams'],
-    },
-  );
+export const WeightDistributionObjectSchema = z.object({
+  totalRtrWeightGrams: z.number().positive().min(200).max(25000),
+  frontAxleWeightGrams: z.number().positive(),
+  rearAxleWeightGrams: z.number().positive(),
+  frontWeightBiasPercentage: z.number().min(0).max(100).optional(),
+  rearWeightBiasPercentage: z.number().min(0).max(100).optional(),
+  batteryMountLocation: BatteryPositionEnum.default('center_low'),
+});
+
+export const WeightDistributionSchema = WeightDistributionObjectSchema.refine(
+  (data) =>
+    Math.abs(
+      data.totalRtrWeightGrams -
+        (data.frontAxleWeightGrams + data.rearAxleWeightGrams),
+    ) <= 10,
+  {
+    message:
+      'Front plus rear axle weights must equal total ready-to-run weight within a 10g tolerance',
+    path: ['totalRtrWeightGrams'],
+  },
+);
 
 export const TiresAndWeightSchema = z.object({
   front: AxleTireSpecificationSchema,
