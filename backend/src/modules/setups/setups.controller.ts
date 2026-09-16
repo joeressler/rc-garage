@@ -18,6 +18,7 @@ import {
   ForkSetupDto,
   ForkSetupSchema,
 } from '../../contracts/fork.contract';
+import { LikeToggleResult } from '../../contracts/feed.contract';
 import {
   CreateSetupDto,
   CreateSetupSchema,
@@ -35,6 +36,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { ForkService } from './fork.service';
+import { LikesService } from './likes.service';
 import { SetupsService } from './setups.service';
 
 interface AuthenticatedRequest extends Request {
@@ -50,6 +52,7 @@ export class SetupsController {
   constructor(
     private readonly setupsService: SetupsService,
     private readonly forkService: ForkService,
+    private readonly likesService: LikesService,
   ) {}
 
   @Post()
@@ -79,6 +82,16 @@ export class SetupsController {
     @Body(new ZodValidationPipe(ForkSetupSchema)) dto: ForkSetupDto,
   ): Promise<SetupEntity> {
     return this.forkService.fork(request.user.id, id, dto);
+  }
+
+  @Post(':id/like')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  like(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', new ZodValidationPipe(SetupIdSchema)) id: string,
+  ): Promise<LikeToggleResult> {
+    return this.likesService.toggle(request.user.id, id);
   }
 
   @Get(':id')

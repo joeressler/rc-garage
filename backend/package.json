@@ -2,7 +2,7 @@
   "name": "rc-garage-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "RC Garage NestJS API — JWT auth, vehicle fleet, setup telemetry, fork lineage, QR stickers, and PostgreSQL persistence",
+  "description": "RC Garage NestJS API — JWT auth, vehicle fleet, setup telemetry, fork lineage, QR stickers, community feed, and PostgreSQL persistence",
   "scripts": {
     "build": "nest build",
     "start": "node dist/main.js",
@@ -10,7 +10,7 @@
     "migration:up": "ts-node -r tsconfig-paths/register src/database/migrate.ts up",
     "migration:down": "ts-node -r tsconfig-paths/register src/database/migrate.ts down",
     "test:unit": "ts-node -r tsconfig-paths/register test/telemetry-math.util.ts && ts-node -r tsconfig-paths/register test/diff-engine.util.ts && ts-node -r tsconfig-paths/register test/qr-url.util.ts",
-    "test:e2e": "npm run test:unit && ts-node -r tsconfig-paths/register test/vehicles.e2e.ts && ts-node -r tsconfig-paths/register test/setups.e2e.ts && ts-node -r tsconfig-paths/register test/fork.e2e.ts && ts-node -r tsconfig-paths/register test/qr.e2e.ts"
+    "test:e2e": "npm run test:unit && ts-node -r tsconfig-paths/register test/vehicles.e2e.ts && ts-node -r tsconfig-paths/register test/setups.e2e.ts && ts-node -r tsconfig-paths/register test/fork.e2e.ts && ts-node -r tsconfig-paths/register test/qr.e2e.ts && ts-node -r tsconfig-paths/register test/feed.e2e.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",
