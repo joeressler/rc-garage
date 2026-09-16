@@ -2,15 +2,15 @@
   "name": "rc-garage-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "RC Garage NestJS API — JWT auth, vehicle fleet, setup telemetry, fork lineage, and PostgreSQL persistence",
+  "description": "RC Garage NestJS API — JWT auth, vehicle fleet, setup telemetry, fork lineage, QR stickers, and PostgreSQL persistence",
   "scripts": {
     "build": "nest build",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "migration:up": "ts-node -r tsconfig-paths/register src/database/migrate.ts up",
     "migration:down": "ts-node -r tsconfig-paths/register src/database/migrate.ts down",
-    "test:unit": "ts-node -r tsconfig-paths/register test/telemetry-math.util.ts && ts-node -r tsconfig-paths/register test/diff-engine.util.ts",
-    "test:e2e": "npm run test:unit && ts-node -r tsconfig-paths/register test/vehicles.e2e.ts && ts-node -r tsconfig-paths/register test/setups.e2e.ts && ts-node -r tsconfig-paths/register test/fork.e2e.ts"
+    "test:unit": "ts-node -r tsconfig-paths/register test/telemetry-math.util.ts && ts-node -r tsconfig-paths/register test/diff-engine.util.ts && ts-node -r tsconfig-paths/register test/qr-url.util.ts",
+    "test:e2e": "npm run test:unit && ts-node -r tsconfig-paths/register test/vehicles.e2e.ts && ts-node -r tsconfig-paths/register test/setups.e2e.ts && ts-node -r tsconfig-paths/register test/fork.e2e.ts && ts-node -r tsconfig-paths/register test/qr.e2e.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",
@@ -24,6 +24,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.13.1",
+    "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^3.25.76"
@@ -37,6 +38,10 @@
     "@types/passport": "^1.0.17",
     "@types/passport-jwt": "^4.0.1",
     "@types/pg": "^8.11.10",
+    "@types/pngjs": "^6.0.5",
+    "@types/qrcode": "^1.5.6",
+    "jsqr": "^1.4.0",
+    "pngjs": "^7.0.0",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.2"

@@ -1,7 +1,7 @@
 # Milestone 07: QR Code Generation & Static Chassis Inspection Engine
 
 ## 1. Objective
-Implement the QR code sharing engine in NestJS and edge routing in React, delivering resilient, high-contrast QR codes formatted for physical 1.5" x 1.5" pit-box and chassis stickers, linked to lightweight mobile inspection views.
+Implement the QR code sharing engine in NestJS, delivering resilient, high-contrast QR codes formatted for physical 1.5" x 1.5" pit-box and chassis stickers. React edge routing (`/s/:slug`), the public inspection view, and the 1.5" sticker print template are deferred to Milestone 09, when the SPA is scaffolded.
 
 ---
 
@@ -9,9 +9,12 @@ Implement the QR code sharing engine in NestJS and edge routing in React, delive
 - `/backend/src/modules/qr/qr.module.ts`
 - `/backend/src/modules/qr/qr.controller.ts`
 - `/backend/src/modules/qr/qr.service.ts`
+- `/backend/src/modules/qr/utils/qr-url.util.ts`
+- `/backend/src/contracts/qr.contract.ts`
+
+Frontend files deferred to Milestone 09:
 - `/frontend/src/views/PublicInspectionView.tsx`
 - `/frontend/src/components/qr/ChassisStickerPrinter.tsx`
-- `/backend/src/contracts/qr.contract.ts`
 
 ---
 
@@ -19,7 +22,7 @@ Implement the QR code sharing engine in NestJS and edge routing in React, delive
 
 ### 3.1 QR Code Specification
 - **Error Correction Level:** Level `H` (~30% error recovery). Essential for surviving outdoor trail mud, oil splatters, and chassis abrasions.
-- **Slug Generation:** Nanoid alphanumeric string (10 characters, URL-safe: `[a-zA-Z0-9_-]`).
+- **Slug Generation:** Nanoid alphanumeric string (10 characters, URL-safe: `[a-zA-Z0-9_-]`). Already allocated on setup create/fork; do not regenerate on update.
 - **Target URL Structure:** `${APP_BASE_URL}/s/:qr_slug` (e.g. `https://rc-garage.community/s/v9k2pq1x8m`).
 - **Output Formats:**
   - `SVG`: Scalable vector for high-density vinyl label printing.
@@ -27,42 +30,34 @@ Implement the QR code sharing engine in NestJS and edge routing in React, delive
 
 ### 3.2 Backend QR Service & Controller (`/api/garage/setups/:id/qr`)
 1. **`GET /api/garage/setups/:id/qr`**
+   - Auth: none (setup UUID is the capability token; owners can print stickers before publishing).
    - Query Parameters:
      - `format`: `'svg' | 'png'` (default `'svg'`).
-     - `size`: number (default `512` px).
+     - `size`: number (default `512` px; callers pass `450` for 1.5" @ 300 DPI).
      - `margin`: number (quiet zone, default `2` modules).
    - Action:
      - Fetches setup record; resolves `qr_slug`.
-     - Generates QR matrix with Level `H` error correction.
+     - Generates QR matrix with Level `H` error correction encoding `${APP_BASE_URL}/s/:qr_slug`.
      - Emits binary SVG or PNG stream with appropriate `Content-Type: image/svg+xml` or `image/png`.
-   - Status: `200 OK`.
+     - Must not wrap the stream in the JSON REST envelope.
+   - Status: `200 OK`. Missing setup: `404`.
 
 2. **`GET /api/garage/qr/resolve/:slug`**
-   - Param: `slug` (10-char string).
-   - Action: Resolves `setup_id` and redirects or returns setup summary for public inspection.
-   - Status: `200 OK`.
+   - Auth: none.
+   - Param: `slug` (10-char URL-safe string).
+   - Action: Join `setups` to `vehicles` and return a `PublicInspectionSheet` JSON summary for the future `/s/:slug` SPA view. Require `is_public = TRUE`. Do not 302-redirect.
+   - Status: `200 OK`. Missing, unknown, or private slug: `404`.
 
-### 3.3 Public Static Chassis Inspection Route (`/s/:slug`)
-- SPA route in React that loads instantly without requiring authentication.
-- Fetches setup data using the slug.
-- Displays an ultra-clean, mobile-first pit-mat inspection card:
-  - Vehicle Make, Model, Class badge.
-  - Calculated FDR and battery cell count.
-  - Shock oil CST/WT ratings and tire compound tags.
-  - Scrutineering stamp and verified badge.
-  - One-tap CTA: "Fork this setup into your Garage".
+### 3.3 Public Static Chassis Inspection Route (`/s/:slug`) — Milestone 09
+Deferred until the React SPA exists. Milestone 09 must add `PublicInspectionView.tsx` and register `/s/:slug` as an unauthenticated route that loads `GET /api/garage/qr/resolve/:slug`.
 
-### 3.4 Physical Chassis Sticker Print Template
-- Pre-composed 1.5" x 1.5" sticker component:
-  - High-contrast black QR matrix on white background.
-  - Header: Chassis name (e.g. "VS4-10 Phoenix").
-  - Footer: Calculated FDR ("FDR: 10.80:1") and short URL slug.
-  - Print CSS styling (`@media print`) disabling margins and toolbars.
+### 3.4 Physical Chassis Sticker Print Template — Milestone 09 / 12
+Deferred until the React SPA exists. Milestone 09 must add `ChassisStickerPrinter.tsx` (1.5" x 1.5" high-contrast template). Milestone 12's `QrPitStickerPrinterModal` composes that printer component for download/print actions.
 
 ---
 
 ## 4. Verification & Acceptance Criteria
-1. Generated QR codes scan reliably on mobile camera apps from 6 to 18 inches away.
-2. QR codes with up to 25% obstructed or smudged modules remain decodable due to Level `H` error correction.
-3. Accessing `/s/:slug` on mobile renders a complete mechanical sheet in under 1 second.
-4. SVG output scales infinitely without pixelation when sent to vinyl cutter/plotter software.
+1. Generated PNG QR codes decode to `${APP_BASE_URL}/s/:qr_slug` (Level `H` matrix).
+2. SVG output is a raw `image/svg+xml` stream (not JSON) that scales without raster pixelation.
+3. `GET /qr/resolve/:slug` returns an enveloped public inspection summary; private slugs 404.
+4. React `/s/:slug` rendering and vinyl print UI are verified in Milestone 09 / 12, not this milestone.

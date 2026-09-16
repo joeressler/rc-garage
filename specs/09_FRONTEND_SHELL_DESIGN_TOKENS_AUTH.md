@@ -1,7 +1,7 @@
 # Milestone 09: Frontend SPA Setup, Industrial Pit-Mat Design System & Zustand Auth
 
 ## 1. Objective
-Scaffold the React 18 + Vite SPA, configure TailwindCSS with the "Industrial Garage Pit-Mat" design token system, establish layout primitives (workbench header, toolbox drawer tabs), and implement the decentralized `useAuthStore` with JWT session persistence.
+Scaffold the React 18 + Vite SPA, configure TailwindCSS with the "Industrial Garage Pit-Mat" design token system, establish layout primitives (workbench header, toolbox drawer tabs), implement the decentralized `useAuthStore` with JWT session persistence, and ship the unauthenticated QR inspection route plus 1.5" chassis sticker printer deferred from Milestone 07.
 
 ---
 
@@ -15,6 +15,8 @@ Scaffold the React 18 + Vite SPA, configure TailwindCSS with the "Industrial Gar
 - `/frontend/src/components/layout/DiagnosticTopBar.tsx`
 - `/frontend/src/components/layout/ToolboxDrawerNavigation.tsx`
 - `/frontend/src/components/auth/AuthModal.tsx`
+- `/frontend/src/views/PublicInspectionView.tsx`
+- `/frontend/src/components/qr/ChassisStickerPrinter.tsx`
 
 ---
 
@@ -148,6 +150,25 @@ export const useAuthStore = create<AuthState>()(
    - Drawer 3: Community Feed
    - Drawer 4: QR Pit-Stickers
 
+### 3.4 Public Static Chassis Inspection Route (`/s/:slug`)
+- Register `/s/:slug` in `App.tsx` **outside** `PitMatAppLayout` so pit-side scans work without authentication.
+- `PublicInspectionView` loads instantly from `GET /api/garage/qr/resolve/:slug` (Milestone 07).
+- Displays an ultra-clean, mobile-first pit-mat inspection card:
+  - Vehicle Make, Model, Class badge.
+  - Calculated FDR and battery cell count.
+  - Shock oil CST/WT ratings and tire compound tags.
+  - Scrutineering stamp and verified badge (`verified` from the resolve payload).
+  - One-tap CTA: "Fork this setup into your Garage" (opens `AuthModal` when logged out; forks after Milestone 10 garage selection exists).
+- Unknown or private slugs render a pit-mat 404 card (do not leak private sheets).
+
+### 3.5 Physical Chassis Sticker Print Template
+- `ChassisStickerPrinter` is the pre-composed 1.5" x 1.5" sticker:
+  - High-contrast black QR matrix on white background, loaded from `GET /api/garage/setups/:id/qr?format=svg`.
+  - Header: Chassis name (e.g. "VS4-10 Phoenix").
+  - Footer: Calculated FDR ("FDR: 10.80:1") and short URL slug.
+  - Print CSS (`@media print`) disabling margins and toolbars.
+- Milestone 12 wraps this component in `QrPitStickerPrinterModal` for download (SVG / 300 DPI PNG) and direct print. Do not duplicate the sticker layout there.
+
 ---
 
 ## 4. Verification & Acceptance Criteria
@@ -155,3 +176,4 @@ export const useAuthStore = create<AuthState>()(
 2. The UI matches the gritty dark-mode industrial garage theme using defined design tokens.
 3. Logging in persists JWT token to local storage and updates `isAuthenticated` across reloads.
 4. Logging out wipes token and resets state immediately.
+5. Accessing `/s/:slug` on mobile (unauthenticated) renders a complete mechanical inspection sheet from the QR resolve API in under 1 second.

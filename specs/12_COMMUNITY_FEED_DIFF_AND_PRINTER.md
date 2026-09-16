@@ -12,6 +12,7 @@ Implement the community discovery feed UI, side-by-side fork diff inspector, phy
 - `/frontend/src/components/diff/ForkDiffInspectorModal.tsx`
 - `/frontend/src/components/diff/SideBySideSpecTable.tsx`
 - `/frontend/src/components/qr/QrPitStickerPrinterModal.tsx`
+- `/frontend/src/components/qr/ChassisStickerPrinter.tsx` (created in Milestone 09; this milestone composes it — do not fork a second sticker layout)
 - `/tests/e2e/garage-workflow.spec.ts`
 
 ---
@@ -40,15 +41,15 @@ Implement the community discovery feed UI, side-by-side fork diff inspector, phy
   - Identical values rendered in muted gray (`text-readout-dim`).
 
 ### 3.3 QR Pit-Sticker Printer Modal (`frontend/src/components/qr/QrPitStickerPrinterModal.tsx`)
-- Renders an interactive 1:1 scale preview of the 1.5" x 1.5" vinyl chassis sticker.
+- Renders an interactive 1:1 scale preview of the 1.5" x 1.5" vinyl chassis sticker by **composing** Milestone 09's `ChassisStickerPrinter` (do not reimplement the 1.5" matrix/header/footer markup).
 - Features:
-  - High-resolution SVG rendering with Level 'H' error correction matrix.
+  - High-resolution SVG rendering with Level 'H' error correction matrix via `GET /api/garage/setups/:id/qr`.
   - Top label with Vehicle Make & Model.
   - Bottom badge with FDR ratio and `/s/:slug` short URL.
 - Export options:
   - "Download Scalable Vector (SVG)" for vinyl cutters.
-  - "Download 300 DPI Bitmap (PNG)" for sticker paper printers.
-  - "Direct Print Sheet" triggering browser `@media print` layout formatting.
+  - "Download 300 DPI Bitmap (PNG)" (`?format=png&size=450`) for sticker paper printers.
+  - "Direct Print Sheet" triggering browser `@media print` layout formatting from `ChassisStickerPrinter`.
 
 ### 3.4 Comprehensive Integration & Verification Plan
 1. **End-to-End Workflow Verification:**
