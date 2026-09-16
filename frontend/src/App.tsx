@@ -3,9 +3,10 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuthModal } from './components/auth/AuthModal';
 import { PitMatAppLayout } from './components/layout/PitMatAppLayout';
 import { useAuthStore } from './stores/useAuthStore';
+import { useGarageStore } from './stores/useGarageStore';
 import { ClipboardPlaceholderView } from './views/ClipboardPlaceholderView';
 import { FeedPlaceholderView } from './views/FeedPlaceholderView';
-import { GaragePlaceholderView } from './views/GaragePlaceholderView';
+import { GarageFleetView } from './views/GarageFleetView';
 import { PublicInspectionView } from './views/PublicInspectionView';
 import { StickersPlaceholderView } from './views/StickersPlaceholderView';
 
@@ -14,6 +15,9 @@ import { StickersPlaceholderView } from './views/StickersPlaceholderView';
  */
 export function App() {
   const checkSession = useAuthStore((state) => state.checkSession);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const fetchVehicles = useGarageStore((state) => state.fetchVehicles);
+  const resetGarage = useGarageStore((state) => state.reset);
   const [authOpen, setAuthOpen] = useState(false);
   const openAuth = useCallback(() => setAuthOpen(true), []);
   const closeAuth = useCallback(() => setAuthOpen(false), []);
@@ -21,6 +25,14 @@ export function App() {
   useEffect(() => {
     void checkSession();
   }, [checkSession]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      void fetchVehicles();
+      return;
+    }
+    resetGarage();
+  }, [isAuthenticated, fetchVehicles, resetGarage]);
 
   return (
     <>
@@ -31,7 +43,7 @@ export function App() {
         />
         <Route element={<PitMatAppLayout onRequestAuth={openAuth} />}>
           <Route path="/" element={<Navigate to="/garage" replace />} />
-          <Route path="/garage" element={<GaragePlaceholderView />} />
+          <Route path="/garage" element={<GarageFleetView onRequestAuth={openAuth} />} />
           <Route path="/clipboard" element={<ClipboardPlaceholderView />} />
           <Route path="/feed" element={<FeedPlaceholderView />} />
           <Route path="/stickers" element={<StickersPlaceholderView />} />

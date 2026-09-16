@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../api/http';
 import {
   apiResolveInspection,
@@ -111,6 +111,7 @@ function InspectionCard({
   isAuthenticated: boolean;
   onRequestAuth: () => void;
 }) {
+  const navigate = useNavigate();
   const classLabel = VEHICLE_CLASS_LABELS[sheet.vehicle.vehicleClass];
 
   return (
@@ -170,7 +171,9 @@ function InspectionCard({
         onClick={() => {
           if (!isAuthenticated) {
             onRequestAuth();
+            return;
           }
+          navigate('/garage');
         }}
         className="mt-6 w-full bg-hazard-orange py-3 font-display text-sm uppercase tracking-[0.22em] text-pit-black shadow-hazard-glow"
       >
@@ -178,11 +181,12 @@ function InspectionCard({
       </button>
       {isAuthenticated ? (
         <p className="mt-2 font-mono text-[10px] text-readout-muted">
-          Vehicle selection for forks ships with Milestone 10.
+          Pick an active chassis in Fleet Garage. Forking onto that bay ships with the setup
+          clipboard.
         </p>
       ) : (
         <p className="mt-2 font-mono text-[10px] text-readout-muted">
-          Sign in to continue. Fork targeting waits for the garage store.
+          Sign in, then choose a chassis in Fleet Garage before forking.
         </p>
       )}
     </article>

@@ -1,4 +1,5 @@
 import { useAuthStore } from '../../stores/useAuthStore';
+import { useGarageStore } from '../../stores/useGarageStore';
 
 interface DiagnosticTopBarProps {
   onRequestAuth: () => void;
@@ -11,7 +12,13 @@ export function DiagnosticTopBar({ onRequestAuth }: DiagnosticTopBarProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const fleetCount = user?.vehicleCount ?? 0;
+  const vehicles = useGarageStore((state) => state.vehicles);
+  const hasLoaded = useGarageStore((state) => state.hasLoaded);
+  const fleetCount = isAuthenticated
+    ? hasLoaded
+      ? vehicles.length
+      : (user?.vehicleCount ?? 0)
+    : 0;
   const callsign = user?.callsign ?? 'GUEST';
 
   return (

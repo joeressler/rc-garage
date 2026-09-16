@@ -16,6 +16,30 @@
   .hex-rivet {
     @apply pointer-events-none absolute h-2 w-2 rounded-sm border border-metal-highlight bg-pit-rubber;
   }
+
+  .chassis-tread-border {
+    background-image: repeating-linear-gradient(
+      90deg,
+      #2a313a 0 8px,
+      #16191d 8px 10px,
+      #0e1012 10px 14px
+    );
+    padding: 5px;
+  }
+
+  .knurled-aluminum {
+    border: 5px solid transparent;
+    background:
+      linear-gradient(#21262d, #21262d) padding-box,
+      repeating-linear-gradient(
+        135deg,
+        #6b7280 0 3px,
+        #3d444e 3px 6px,
+        #9ca3af 6px 7px,
+        #2a313a 7px 10px
+      )
+      border-box;
+  }
 }
 
 @layer utilities {
