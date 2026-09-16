@@ -2,14 +2,14 @@
   "name": "rc-garage-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "RC Garage NestJS API — JWT auth, vehicle fleet management, and PostgreSQL persistence",
+  "description": "RC Garage NestJS API — JWT auth, vehicle fleet, setup telemetry, and PostgreSQL persistence",
   "scripts": {
     "build": "nest build",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "migration:up": "ts-node -r tsconfig-paths/register src/database/migrate.ts up",
     "migration:down": "ts-node -r tsconfig-paths/register src/database/migrate.ts down",
-    "test:e2e": "ts-node -r tsconfig-paths/register test/vehicles.e2e.ts"
+    "test:e2e": "ts-node -r tsconfig-paths/register test/vehicles.e2e.ts && ts-node -r tsconfig-paths/register test/setups.e2e.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",
@@ -19,6 +19,7 @@
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.15",
     "bcryptjs": "^3.0.3",
+    "nanoid": "^3.3.11",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.13.1",
