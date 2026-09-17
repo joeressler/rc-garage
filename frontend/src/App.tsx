@@ -4,7 +4,7 @@ import { AuthModal } from './components/auth/AuthModal';
 import { PitMatAppLayout } from './components/layout/PitMatAppLayout';
 import { useAuthStore } from './stores/useAuthStore';
 import { useGarageStore } from './stores/useGarageStore';
-import { ClipboardPlaceholderView } from './views/ClipboardPlaceholderView';
+import { SetupClipboardView } from './views/SetupClipboardView';
 import { FeedPlaceholderView } from './views/FeedPlaceholderView';
 import { GarageFleetView } from './views/GarageFleetView';
 import { PublicInspectionView } from './views/PublicInspectionView';
@@ -44,7 +44,7 @@ export function App() {
         <Route element={<PitMatAppLayout onRequestAuth={openAuth} />}>
           <Route path="/" element={<Navigate to="/garage" replace />} />
           <Route path="/garage" element={<GarageFleetView onRequestAuth={openAuth} />} />
-          <Route path="/clipboard" element={<ClipboardPlaceholderView />} />
+          <Route path="/clipboard" element={<SetupClipboardView onRequestAuth={openAuth} />} />
           <Route path="/feed" element={<FeedPlaceholderView />} />
           <Route path="/stickers" element={<StickersPlaceholderView />} />
           <Route path="*" element={<Navigate to="/garage" replace />} />
