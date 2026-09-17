@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { apiGetFeed, apiToggleLike, type FeedFilters as ApiFeedFilters, type FeedItem, type FeedSortBy } from '../api/feed';
+import { apiGetFeed, apiToggleLike, type FeedItem, type FeedSortBy } from '../api/feed';
 import { apiForkSetup, type ForkSetupPayload } from '../api/fork';
 import { ApiError } from '../api/http';
 import {

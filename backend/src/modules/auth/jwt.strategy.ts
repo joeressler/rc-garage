@@ -1,15 +1,20 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import {
   AuthenticatedUser,
   JwtPayload,
+  UserRole,
 } from '../../contracts/auth.contract';
 import { DatabaseService } from '../../database/database.service';
 
 /**
- * Purpose: resolve a Bearer JWT into the authenticated driver attached to the request.
+ * Purpose: resolve a Bearer JWT into the authenticated driver attached to the request, rejecting suspended accounts.
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -34,17 +39,28 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       id: string;
       callsign: string;
       email: string;
-    }>('SELECT id, callsign, email FROM users WHERE id = $1', [payload.sub]);
+      role: UserRole;
+      is_suspended: boolean;
+    }>(
+      'SELECT id, callsign, email, role, is_suspended FROM users WHERE id = $1',
+      [payload.sub],
+    );
 
     const user = result.rows[0];
     if (!user) {
       throw new UnauthorizedException();
     }
 
+    if (user.is_suspended) {
+      throw new ForbiddenException('Account suspended');
+    }
+
     return {
       id: user.id,
       callsign: user.callsign,
       email: user.email,
+      role: user.role ?? 'driver',
+      isSuspended: user.is_suspended,
     };
   }
 }

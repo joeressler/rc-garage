@@ -46,7 +46,7 @@ export class FeedService {
     callerId?: string,
   ): Promise<PaginatedFeedResponse> {
     const params: unknown[] = [];
-    const where = ['s.is_public = TRUE'];
+    const where = ['s.is_public = TRUE', 's.is_hidden = FALSE'];
 
     let likedSql = 'FALSE AS is_liked_by_caller';
     if (callerId) {

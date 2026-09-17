@@ -13,10 +13,18 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     avatar_url TEXT,
     bio VARCHAR(250),
+    role VARCHAR(20) NOT NULL DEFAULT 'driver'
+        CHECK (role IN ('driver', 'moderator', 'admin')),
+    is_suspended BOOLEAN NOT NULL DEFAULT FALSE,
+    suspended_at TIMESTAMP WITH TIME ZONE,
+    suspension_reason VARCHAR(500),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT users_callsign_format CHECK (callsign ~ '^[a-zA-Z0-9_-]+$')
 );
+
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_suspended ON users(is_suspended) WHERE is_suspended = TRUE;
 
 -- -----------------------------------------------------------------------------
 -- Vehicles Table (Digital Garage Fleet)
@@ -47,6 +55,9 @@ CREATE TABLE setups (
     title VARCHAR(100) NOT NULL,
     description TEXT,
     is_public BOOLEAN DEFAULT TRUE NOT NULL,
+    is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+    hidden_at TIMESTAMP WITH TIME ZONE,
+    hidden_reason VARCHAR(500),
 
     -- Provenance & Fork Lineage Pointers
     forked_from_setup_id UUID REFERENCES setups(id) ON DELETE SET NULL,
@@ -77,7 +88,7 @@ CREATE INDEX idx_setups_user_id ON setups(user_id);
 CREATE INDEX idx_setups_forked_from ON setups(forked_from_setup_id);
 CREATE INDEX idx_setups_root_ancestor ON setups(root_ancestor_setup_id);
 CREATE INDEX idx_setups_qr_slug ON setups(qr_slug);
-CREATE INDEX idx_setups_feed_composite ON setups(is_public, created_at DESC) WHERE is_public = TRUE;
+CREATE INDEX idx_setups_feed_composite ON setups(is_public, created_at DESC) WHERE is_public = TRUE AND is_hidden = FALSE;
 CREATE INDEX idx_setups_surface ON setups(surface_type);
 CREATE INDEX idx_setups_tags_gin ON setups USING GIN(tags);
 CREATE INDEX idx_setups_settings_gin ON setups USING GIN(settings);
@@ -93,3 +104,20 @@ CREATE TABLE setup_likes (
 );
 
 CREATE INDEX idx_setup_likes_setup_id ON setup_likes(setup_id);
+
+-- -----------------------------------------------------------------------------
+-- Moderation Audit Log (Immutable Operator Actions)
+-- -----------------------------------------------------------------------------
+CREATE TABLE moderation_audit_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    actor_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    action VARCHAR(40) NOT NULL,
+    target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('user', 'setup')),
+    target_id UUID NOT NULL,
+    reason VARCHAR(500),
+    metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE INDEX idx_moderation_audit_created ON moderation_audit_log(created_at DESC);
+CREATE INDEX idx_moderation_audit_target ON moderation_audit_log(target_type, target_id);

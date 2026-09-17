@@ -1,8 +1,10 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import {
@@ -11,6 +13,7 @@ import {
   UserLoginDto,
   UserProfile,
   UserRegistrationDto,
+  UserRole,
 } from '../../contracts/auth.contract';
 import { DatabaseService } from '../../database/database.service';
 
@@ -22,6 +25,8 @@ interface UserRow {
   email: string;
   avatar_url: string | null;
   bio: string | null;
+  role: UserRole;
+  is_suspended: boolean;
   created_at: Date | string;
 }
 
@@ -41,13 +46,14 @@ interface PostgresError {
 }
 
 /**
- * Purpose: register, authenticate, and load driver identity without exposing password hashes.
+ * Purpose: register, authenticate, promote bootstrap admin, and load driver identity without exposing password hashes.
  */
 @Injectable()
 export class AuthService {
   constructor(
     private readonly database: DatabaseService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
   async register(dto: UserRegistrationDto): Promise<AuthTokenResponse> {
@@ -58,10 +64,12 @@ export class AuthService {
       const result = await this.database.query<UserRow>(
         `INSERT INTO users (email, password_hash, callsign)
          VALUES ($1, $2, $3)
-         RETURNING id, callsign, email, avatar_url, bio, created_at`,
+         RETURNING id, callsign, email, avatar_url, bio, role, is_suspended, created_at`,
         [email, passwordHash, dto.callsign],
       );
-      return this.toTokenResponse(result.rows[0]);
+      const row = result.rows[0];
+      const promoted = await this.maybeBootstrapAdmin(row);
+      return this.toTokenResponse(promoted);
     } catch (error) {
       this.throwIfUniqueViolation(error);
       throw error;
@@ -71,7 +79,7 @@ export class AuthService {
   async login(dto: UserLoginDto): Promise<AuthTokenResponse> {
     const email = dto.email.toLowerCase();
     const result = await this.database.query<UserAuthRow>(
-      `SELECT id, callsign, email, avatar_url, bio, created_at, password_hash
+      `SELECT id, callsign, email, avatar_url, bio, role, is_suspended, created_at, password_hash
        FROM users
        WHERE email = $1`,
       [email],
@@ -82,7 +90,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    return this.toTokenResponse(row);
+    if (row.is_suspended) {
+      throw new ForbiddenException('Account suspended');
+    }
+
+    const promoted = await this.maybeBootstrapAdmin(row);
+    return this.toTokenResponse(promoted);
   }
 
   async getMe(userId: string): Promise<AuthMeResponse> {
@@ -93,6 +106,8 @@ export class AuthService {
          u.email,
          u.avatar_url,
          u.bio,
+         u.role,
+         u.is_suspended,
          u.created_at,
          (SELECT COUNT(*)::int FROM vehicles v WHERE v.user_id = u.id) AS vehicle_count,
          (SELECT COUNT(*)::int FROM setups s WHERE s.user_id = u.id) AS setup_count
@@ -106,6 +121,10 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
+    if (row.is_suspended) {
+      throw new ForbiddenException('Account suspended');
+    }
+
     return {
       ...this.toProfile(row),
       vehicleCount: Number(row.vehicle_count),
@@ -113,10 +132,44 @@ export class AuthService {
     };
   }
 
+  private async maybeBootstrapAdmin(user: UserRow): Promise<UserRow> {
+    const bootstrapEmail = (
+      this.configService.get<string>('BOOTSTRAP_ADMIN_EMAIL') ??
+      process.env.BOOTSTRAP_ADMIN_EMAIL ??
+      ''
+    ).trim().toLowerCase();
+
+    if (!bootstrapEmail || user.email.toLowerCase() !== bootstrapEmail) {
+      return user;
+    }
+
+    // Check if an admin already exists
+    const adminCheck = await this.database.query<{ count: string | number }>(
+      `SELECT COUNT(*)::int as count FROM users WHERE role = 'admin'`,
+    );
+    const existingAdminCount = Number(adminCheck.rows[0]?.count ?? 0);
+
+    if (existingAdminCount === 0 || user.role === 'admin') {
+      if (user.role !== 'admin') {
+        await this.database.query(
+          `UPDATE users SET role = 'admin' WHERE id = $1`,
+          [user.id],
+        );
+        user.role = 'admin';
+      }
+    }
+
+    return user;
+  }
+
   private toTokenResponse(row: UserRow): AuthTokenResponse {
     const user = this.toProfile(row);
     return {
-      token: this.jwtService.sign({ sub: user.id, callsign: user.callsign }),
+      token: this.jwtService.sign({
+        sub: user.id,
+        callsign: user.callsign,
+        role: user.role,
+      }),
       user,
     };
   }
@@ -126,6 +179,8 @@ export class AuthService {
       id: row.id,
       callsign: row.callsign,
       email: row.email,
+      role: row.role ?? 'driver',
+      isSuspended: Boolean(row.is_suspended),
       createdAt:
         row.created_at instanceof Date
           ? row.created_at.toISOString()

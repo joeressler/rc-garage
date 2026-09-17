@@ -4,10 +4,11 @@ import type { VehicleClass } from './vehicles';
 
 export type FeedSortBy = 'newest' | 'most_forked' | 'most_liked';
 
-export interface FeedQueryOptions {
+export interface FeedFilters {
   cursor?: string;
   limit?: number;
   model?: string;
+  vehicleModel?: string;
   make?: string;
   vehicleClass?: VehicleClass;
   surfaceType?: SurfaceType;
@@ -15,6 +16,8 @@ export interface FeedQueryOptions {
   tag?: string;
   sortBy?: FeedSortBy;
 }
+
+export type FeedQueryOptions = FeedFilters;
 
 export interface FeedAuthor {
   callsign: string;
