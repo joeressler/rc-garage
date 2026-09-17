@@ -1,11 +1,15 @@
 import { apiJson } from './http';
 
+export type UserRole = 'driver' | 'moderator' | 'admin';
+
 export interface UserProfile {
   id: string;
   callsign: string;
   email: string;
   avatarUrl?: string;
   bio?: string;
+  role: UserRole;
+  isSuspended: boolean;
   createdAt: string;
 }
 

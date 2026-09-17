@@ -86,7 +86,8 @@ export class QrService {
        FROM setups s
        JOIN vehicles v ON v.id = s.vehicle_id
        WHERE s.qr_slug = $1
-         AND s.is_public = TRUE`,
+         AND s.is_public = TRUE
+         AND s.is_hidden = FALSE`,
       [slug],
     );
 
@@ -144,7 +145,7 @@ export class QrService {
 
   private async loadQrSlug(setupId: string): Promise<QrSetupRow> {
     const result = await this.database.query<QrSetupRow>(
-      `SELECT qr_slug FROM setups WHERE id = $1`,
+      `SELECT qr_slug FROM setups WHERE id = $1 AND is_hidden = FALSE`,
       [setupId],
     );
     const row = result.rows[0];

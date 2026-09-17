@@ -172,7 +172,7 @@ export function CommunityFeedWorkbench({ onRequestAuth }: CommunityFeedWorkbench
       <FeedFilterDrawer
         surfaceType={feedFilters.surfaceType}
         vehicleClass={feedFilters.vehicleClass}
-        sortBy={feedFilters.sortBy}
+        sortBy={feedFilters.sortBy ?? 'newest'}
         searchModel={searchInput}
         onSelectSurface={handleSelectSurface}
         onSelectClass={handleSelectClass}

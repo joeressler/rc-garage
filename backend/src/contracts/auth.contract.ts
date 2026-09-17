@@ -21,12 +21,16 @@ export const UserLoginSchema = z.object({
 export type UserRegistrationDto = z.infer<typeof UserRegistrationSchema>;
 export type UserLoginDto = z.infer<typeof UserLoginSchema>;
 
+export type UserRole = 'driver' | 'moderator' | 'admin';
+
 export interface UserProfile {
   id: string;
   callsign: string;
   email: string;
   avatarUrl?: string;
   bio?: string;
+  role: UserRole;
+  isSuspended: boolean;
   createdAt: string;
 }
 
@@ -43,10 +47,13 @@ export interface AuthMeResponse extends UserProfile {
 export interface JwtPayload {
   sub: string;
   callsign: string;
+  role?: UserRole;
 }
 
 export interface AuthenticatedUser {
   id: string;
   callsign: string;
   email: string;
+  role: UserRole;
+  isSuspended?: boolean;
 }

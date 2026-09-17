@@ -6,6 +6,8 @@ const PROFILE = {
   id: '11111111-1111-4111-8111-111111111111',
   callsign: 'TrailBoss',
   email: 'trailboss@example.com',
+  role: 'driver' as const,
+  isSuspended: false,
   createdAt: '2026-09-16T00:00:00.000Z',
 };
 
