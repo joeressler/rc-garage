@@ -1,4 +1,4 @@
-import type { VehicleClass } from '../api/qr';
+import type { VehicleClass, VehicleScale } from '../api/qr';
 
 export const VEHICLE_CLASS_LABELS: Record<VehicleClass, string> = {
   crawler_scale: 'SCALE CRAWLER',
@@ -11,6 +11,10 @@ export const VEHICLE_CLASS_LABELS: Record<VehicleClass, string> = {
   drift_rwd: 'RWD DRIFT',
   monster_truck: 'MONSTER TRUCK',
 };
+
+export function formatChassisStencil(vehicleClass: VehicleClass, scale: VehicleScale): string {
+  return `${VEHICLE_CLASS_LABELS[vehicleClass]} ${scale}`;
+}
 
 export function formatFdr(value: number): string {
   return `${value.toFixed(2)}:1`;
