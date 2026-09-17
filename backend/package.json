@@ -5,6 +5,7 @@
   "description": "RC Garage NestJS API — JWT auth, vehicle fleet, setup telemetry, fork lineage, QR stickers, community feed, and PostgreSQL persistence",
   "scripts": {
     "build": "nest build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "migration:up": "ts-node -r tsconfig-paths/register src/database/migrate.ts up",
