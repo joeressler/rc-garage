@@ -1,6 +1,50 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="4" fill="#0E1012"/>
-  <rect x="3" y="3" width="26" height="26" fill="#FF5500"/>
-  <rect x="9" y="9" width="14" height="14" fill="#0E1012"/>
-  <rect x="13" y="13" width="6" height="6" fill="#00FF66"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Purpose: RC Rock Crawler favicon rendered with Pit-Mat design tokens (hazard orange, neon radio, pit black, pit steel). -->
+  <!-- Base Chassis & Pit-Mat Foundation Plate -->
+  <rect width="64" height="64" rx="14" fill="#0E1012" stroke="#2A313A" stroke-width="2"/>
+  
+  <!-- Rock Terrain Baseline / Skid Contour -->
+  <path d="M4 56L18 51L32 54L48 50L60 56" stroke="#21262D" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Extreme Articulation 4-Link Suspension & Driveshaft Links -->
+  <path d="M16 42L26 36M48 42L38 36" stroke="#21262D" stroke-width="3" stroke-linecap="round"/>
+  <path d="M16 40L24 32M48 40L40 32" stroke="#16191D" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Left Deep-Lug Crawler Beadlock Tire -->
+  <rect x="4" y="28" width="16" height="26" rx="6" fill="#16191D" stroke="#2A313A" stroke-width="2"/>
+  <!-- Left Tire Aggressive Tread Lugs -->
+  <path d="M4 33H8M4 39H8M4 45H8M4 50H8M16 33H20M16 39H20M16 45H20M16 50H20" stroke="#0E1012" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Left Neon Beadlock Ring & Hub -->
+  <circle cx="12" cy="41" r="6" fill="#0E1012" stroke="#00FF66" stroke-width="2"/>
+  <circle cx="12" cy="41" r="2.5" fill="#FFB800"/>
+
+  <!-- Right Deep-Lug Crawler Beadlock Tire -->
+  <rect x="44" y="28" width="16" height="26" rx="6" fill="#16191D" stroke="#2A313A" stroke-width="2"/>
+  <!-- Right Tire Aggressive Tread Lugs -->
+  <path d="M44 33H48M44 39H48M44 45H48M44 50H48M56 33H60M56 39H60M56 45H60M56 50H60" stroke="#0E1012" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Right Neon Beadlock Ring & Hub -->
+  <circle cx="52" cy="41" r="6" fill="#0E1012" stroke="#00FF66" stroke-width="2"/>
+  <circle cx="52" cy="41" r="2.5" fill="#FFB800"/>
+
+  <!-- Coilover Shock Dampers with Neon Springs -->
+  <line x1="20" y1="36" x2="24" y2="28" stroke="#00FF66" stroke-width="2" stroke-dasharray="1.5 1.5"/>
+  <line x1="44" y1="36" x2="40" y2="28" stroke="#00FF66" stroke-width="2" stroke-dasharray="1.5 1.5"/>
+
+  <!-- Transmission Skid Plate & Central Belly Pan -->
+  <polygon points="22,44 42,44 38,36 26,36" fill="#21262D" stroke="#2A313A" stroke-width="1.5"/>
+
+  <!-- Tubular Rock Bouncer Roll Cage (Hazard Orange) -->
+  <path d="M18 36L22 24L26 14H38L42 24L46 36Z" fill="#16191D" stroke="#FF5500" stroke-width="2.5" stroke-linejoin="round"/>
+  
+  <!-- Internal Cage Bracing & Windshield Frame -->
+  <path d="M26 14L32 24L38 14M22 24H42M26 24L32 36L38 24" stroke="#FF5500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Front Stinger Bumper -->
+  <path d="M24 40L32 34L40 40" stroke="#FF5500" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- High-Intensity Roof Off-Road Light Bar (Neon / Bright Readout) -->
+  <rect x="25" y="10" width="14" height="4" rx="1.5" fill="#0E1012" stroke="#00FF66" stroke-width="1"/>
+  <circle cx="28" cy="12" r="1" fill="#F5F7FA"/>
+  <circle cx="32" cy="12" r="1" fill="#F5F7FA"/>
+  <circle cx="36" cy="12" r="1" fill="#F5F7FA"/>
 </svg>

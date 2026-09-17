@@ -1,0 +1,22 @@
+{
+  "name": "rc-garage-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RC Car & Rock Crawler Garage & Setup Logger — Monorepo Root Orchestrator",
+  "scripts": {
+    "build": "npm --prefix backend run build ; npm --prefix frontend run build",
+    "test": "npm run test:unit ; npm run test:frontend",
+    "test:unit": "npm --prefix backend run test:unit",
+    "test:e2e": "npm --prefix backend run test:e2e",
+    "test:workflow": "npm --prefix backend run test:workflow",
+    "test:admin": "npm --prefix backend run test:admin",
+    "test:frontend": "npm --prefix frontend run test",
+    "typecheck": "tsc --noEmit -p backend/tsconfig.json ; tsc --noEmit -p frontend/tsconfig.json",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

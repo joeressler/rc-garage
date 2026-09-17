@@ -21,6 +21,7 @@ This directory contains the sequential milestone specification files for buildin
 | **11** | [`11_SETUP_SHEET_CLIPBOARD_AND_CALCULATOR.md`](./11_SETUP_SHEET_CLIPBOARD_AND_CALCULATOR.md) | Setup Editor & Math Store | `useSetupStore`, clipboard header clamp with scrutineering stamp, live FDR sliders, CoG balance bars, and shock dyno cards. |
 | **12** | [`12_COMMUNITY_FEED_DIFF_AND_PRINTER.md`](./12_COMMUNITY_FEED_DIFF_AND_PRINTER.md) | Community UI & Printer | Community feed workbench, filter drawer, side-by-side fork diff inspector, 1.5" vinyl chassis sticker printer modal, and E2E verification. |
 | **13** | [`13_ADMIN_CONSOLE_AND_MODERATION.md`](./13_ADMIN_CONSOLE_AND_MODERATION.md) | Admin Console & Moderation | Role-gated Scrutineering Desk, user suspend/reinstate, setup force-hide/delete, JWT role guards, moderation audit log, and admin E2E coverage. |
+| **14** | [`14_PRODUCTION_CLEANUP_AND_OPERATIONAL_EXCELLENCE.md`](./14_PRODUCTION_CLEANUP_AND_OPERATIONAL_EXCELLENCE.md) | Production Readiness & Docs | Developer onboarding runbook, AGENTS.md, CONTRIBUTING.md, ARCHITECTURE.md, crawler SVG favicon, and workspace orchestration. |
 
 ---
 
