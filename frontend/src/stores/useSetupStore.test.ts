@@ -186,4 +186,100 @@ describe('useSetupStore', () => {
       }),
     );
   });
+
+  it('fetches community feed and tracks pagination cursor', async () => {
+    const feedItem = {
+      id: 'feed-setup-1',
+      title: 'Community Rig Spec',
+      author: { callsign: 'TrailBoss', avatarUrl: null },
+      vehicle: { make: 'Element', model: 'Enduro', class: 'crawler_scale' as const },
+      calculatedFdr: 10.5,
+      frontBiasPercentage: 58.0,
+      surfaceType: 'granite_rock' as const,
+      forkCount: 5,
+      likeCount: 12,
+      isLikedByCaller: false,
+      qrSlug: 'slug123',
+      createdAt: '2026-09-17T00:00:00Z',
+    };
+
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse(
+        envelope({
+          items: [feedItem],
+          nextCursor: 'next-uuid',
+          hasMore: true,
+        }),
+      ),
+    );
+
+    await useSetupStore.getState().fetchFeed(true);
+
+    expect(useSetupStore.getState().feedSetups).toHaveLength(1);
+    expect(useSetupStore.getState().feedSetups[0]?.title).toBe('Community Rig Spec');
+    expect(useSetupStore.getState().feedNextCursor).toBe('next-uuid');
+    expect(useSetupStore.getState().feedHasMore).toBe(true);
+  });
+
+  it('toggles like atomically on a feed setup item', async () => {
+    useAuthStore.setState({ token: TOKEN, isAuthenticated: true });
+
+    const feedItem = {
+      id: 'feed-setup-1',
+      title: 'Community Rig Spec',
+      author: { callsign: 'TrailBoss', avatarUrl: null },
+      vehicle: { make: 'Element', model: 'Enduro', class: 'crawler_scale' as const },
+      calculatedFdr: 10.5,
+      frontBiasPercentage: 58.0,
+      surfaceType: 'granite_rock' as const,
+      forkCount: 5,
+      likeCount: 12,
+      isLikedByCaller: false,
+      qrSlug: 'slug123',
+      createdAt: '2026-09-17T00:00:00Z',
+    };
+
+    useSetupStore.setState({ feedSetups: [feedItem] });
+
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse(
+        envelope({
+          liked: true,
+          likeCount: 13,
+        }),
+      ),
+    );
+
+    await useSetupStore.getState().toggleLike('feed-setup-1');
+
+    expect(useSetupStore.getState().feedSetups[0]?.isLikedByCaller).toBe(true);
+    expect(useSetupStore.getState().feedSetups[0]?.likeCount).toBe(13);
+  });
+
+  it('forks setup into user garage and updates active setup', async () => {
+    useAuthStore.setState({ token: TOKEN, isAuthenticated: true });
+    useGarageStore.setState({ vehicles: [VEHICLE], activeVehicleId: VEHICLE.id });
+
+    const forkedEntity: SetupEntity = {
+      ...SAVED_SETUP,
+      id: 'forked-setup-uuid',
+      title: 'Fork of Moab Spec',
+      forkedFromSetupId: 'source-setup-uuid',
+    };
+
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(envelope(forkedEntity, 201)));
+
+    const result = await useSetupStore
+      .getState()
+      .forkSetupIntoGarage('source-setup-uuid', VEHICLE.id, 'Fork of Moab Spec');
+
+    expect(result.id).toBe('forked-setup-uuid');
+    expect(useSetupStore.getState().activeSetup?.id).toBe('forked-setup-uuid');
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/garage/setups/source-setup-uuid/fork',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+  });
 });

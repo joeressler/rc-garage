@@ -56,3 +56,8 @@ export function apiResolveInspection(slug: string): Promise<PublicInspectionShee
 export function chassisQrSvgUrl(setupId: string, size = 450): string {
   return `/api/garage/setups/${encodeURIComponent(setupId)}/qr?format=svg&size=${size}`;
 }
+
+export function chassisQrPngUrl(setupId: string, size = 450): string {
+  return `/api/garage/setups/${encodeURIComponent(setupId)}/qr?format=png&size=${size}`;
+}
+
