@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { apiGetFeed, apiToggleLike, type FeedFilters as ApiFeedFilters, type FeedItem, type FeedSortBy } from '../api/feed';
+import { apiForkSetup, type ForkSetupPayload } from '../api/fork';
 import { ApiError } from '../api/http';
 import {
   apiCreateSetup,
@@ -13,9 +15,11 @@ import {
   type SetupEntity,
   type SetupSettings,
   type ShockSpecification,
+  type SurfaceType,
   type TrackConditions,
   type UpdateSetupDto,
 } from '../api/setups';
+import type { VehicleClass } from '../api/vehicles';
 import { useAuthStore } from './useAuthStore';
 import { useGarageStore } from './useGarageStore';
 
@@ -24,6 +28,17 @@ export interface SetupSheetMeta {
   description: string;
   isPublic: boolean;
   tags: string[];
+}
+
+export interface FeedFilters {
+  vehicleModel?: string;
+  vehicleClass?: VehicleClass;
+  surfaceType?: SurfaceType;
+  locationTag?: string;
+  tag?: string;
+  sortBy: FeedSortBy;
+  cursor?: string;
+  limit: number;
 }
 
 export interface SetupState {
@@ -40,6 +55,14 @@ export interface SetupState {
 
   // Comparison cache for diff viewing
   comparisonParentSetup: SetupSettings | null;
+
+  // Community Feed State
+  feedSetups: FeedItem[];
+  feedFilters: FeedFilters;
+  feedHasMore: boolean;
+  feedNextCursor: string | null;
+  isFeedLoading: boolean;
+  feedError: string | null;
 
   // Live Math Computation Actions (Zero-latency pit-mat feedback)
   updateGearing: (pinion: number, spur: number, internalRatio: number) => void;
@@ -61,9 +84,20 @@ export interface SetupState {
   initNewSetup: (vehicleId?: string, defaultTitle?: string) => void;
   loadSetupById: (setupId: string) => Promise<void>;
   saveCurrentSetup: () => Promise<SetupEntity>;
+  forkSetupIntoGarage: (
+    sourceSetupId: string,
+    targetVehicleId: string,
+    title?: string,
+    description?: string,
+  ) => Promise<SetupEntity>;
   loadParentForComparison: (parentSetupId: string) => Promise<void>;
   clearErrors: () => void;
   reset: () => void;
+
+  // Feed Actions
+  fetchFeed: (reset?: boolean) => Promise<void>;
+  setFeedFilters: (filters: Partial<FeedFilters>) => void;
+  toggleLike: (setupId: string) => Promise<void>;
 }
 
 function requireToken(): string {
@@ -91,8 +125,13 @@ const initialMeta: SetupSheetMeta = {
   tags: [],
 };
 
+const initialFeedFilters: FeedFilters = {
+  sortBy: 'newest',
+  limit: 20,
+};
+
 /**
- * Purpose: manage live telemetry sheet state with instant FDR/CoG calculations and backend persistence.
+ * Purpose: manage live telemetry sheet state with instant FDR/CoG calculations, community feed, and fork actions.
  */
 export const useSetupStore = create<SetupState>((set, get) => ({
   activeSetup: null,
@@ -105,6 +144,14 @@ export const useSetupStore = create<SetupState>((set, get) => ({
   error: null,
   validationErrors: {},
   comparisonParentSetup: null,
+
+  // Community Feed Initial State
+  feedSetups: [],
+  feedFilters: { ...initialFeedFilters },
+  feedHasMore: false,
+  feedNextCursor: null,
+  isFeedLoading: false,
+  feedError: null,
 
   updateGearing: (pinion: number, spur: number, internalRatio: number) => {
     const { activeSettings, validationErrors } = get();
@@ -146,13 +193,13 @@ export const useSetupStore = create<SetupState>((set, get) => ({
 
   updateWeights: (frontWeight: number, rearWeight: number) => {
     const { activeSettings, validationErrors } = get();
-    const totalRtr = frontWeight + rearWeight;
-    const bias = calculateCogBias(frontWeight, totalRtr);
+    const total = frontWeight + rearWeight;
+    const bias = calculateCogBias(frontWeight, total);
 
     const nextErrors = { ...validationErrors };
-    if (totalRtr < 200 || totalRtr > 25000) {
+    if (total < 200 || total > 25000) {
       nextErrors['settings.tiresAndWeight.weight.totalRtrWeightGrams'] =
-        'Total weight must be between 200g and 25000g';
+        'RTR weight must be between 200g and 25000g';
     } else {
       delete nextErrors['settings.tiresAndWeight.weight.totalRtrWeightGrams'];
     }
@@ -168,7 +215,7 @@ export const useSetupStore = create<SetupState>((set, get) => ({
             ...activeSettings.tiresAndWeight.weight,
             frontAxleWeightGrams: frontWeight,
             rearAxleWeightGrams: rearWeight,
-            totalRtrWeightGrams: totalRtr,
+            totalRtrWeightGrams: total,
             frontWeightBiasPercentage: bias.frontBiasPercentage,
             rearWeightBiasPercentage: bias.rearBiasPercentage,
           },
@@ -181,17 +228,48 @@ export const useSetupStore = create<SetupState>((set, get) => ({
     axle: 'front' | 'rear',
     spec: Partial<ShockSpecification>,
   ) => {
-    const { activeSettings } = get();
-    const currentAxle = activeSettings.suspension[axle];
+    const { activeSettings, validationErrors } = get();
+    const nextErrors = { ...validationErrors };
+
+    if (
+      spec.oilViscosityValue !== undefined &&
+      (spec.oilViscosityValue < 10 || spec.oilViscosityValue > 5000)
+    ) {
+      nextErrors[`settings.suspension.${axle}.oilViscosityValue`] =
+        'Viscosity must be between 10 and 5000';
+    } else if (spec.oilViscosityValue !== undefined) {
+      delete nextErrors[`settings.suspension.${axle}.oilViscosityValue`];
+    }
+
+    if (
+      spec.camberAngleDeg !== undefined &&
+      (spec.camberAngleDeg < -8.0 || spec.camberAngleDeg > 8.0)
+    ) {
+      nextErrors[`settings.suspension.${axle}.camberAngleDeg`] =
+        'Camber must be between -8.0° and +8.0°';
+    } else if (spec.camberAngleDeg !== undefined) {
+      delete nextErrors[`settings.suspension.${axle}.camberAngleDeg`];
+    }
+
+    if (
+      spec.toeAngleDeg !== undefined &&
+      (spec.toeAngleDeg < -8.0 || spec.toeAngleDeg > 8.0)
+    ) {
+      nextErrors[`settings.suspension.${axle}.toeAngleDeg`] =
+        'Toe must be between -8.0° and +8.0°';
+    } else if (spec.toeAngleDeg !== undefined) {
+      delete nextErrors[`settings.suspension.${axle}.toeAngleDeg`];
+    }
 
     set({
       isDirty: true,
+      validationErrors: nextErrors,
       activeSettings: {
         ...activeSettings,
         suspension: {
           ...activeSettings.suspension,
           [axle]: {
-            ...currentAxle,
+            ...activeSettings.suspension[axle],
             ...spec,
           },
         },
@@ -204,8 +282,6 @@ export const useSetupStore = create<SetupState>((set, get) => ({
     spec: Partial<AxleTireSpecification>,
   ) => {
     const { activeSettings } = get();
-    const currentAxle = activeSettings.tiresAndWeight[axle];
-
     set({
       isDirty: true,
       activeSettings: {
@@ -213,7 +289,7 @@ export const useSetupStore = create<SetupState>((set, get) => ({
         tiresAndWeight: {
           ...activeSettings.tiresAndWeight,
           [axle]: {
-            ...currentAxle,
+            ...activeSettings.tiresAndWeight[axle],
             ...spec,
           },
         },
@@ -415,6 +491,51 @@ export const useSetupStore = create<SetupState>((set, get) => ({
     }
   },
 
+  forkSetupIntoGarage: async (
+    sourceSetupId: string,
+    targetVehicleId: string,
+    title?: string,
+    description?: string,
+  ): Promise<SetupEntity> => {
+    const token = requireToken();
+    const payload: ForkSetupPayload = {
+      targetVehicleId,
+      title: title?.trim() || undefined,
+      description: description?.trim() || undefined,
+    };
+
+    set({ isSaving: true, error: null });
+    try {
+      const forked = await apiForkSetup(sourceSetupId, payload, token);
+      set({
+        activeSetup: forked,
+        activeSettings: forked.settings,
+        meta: {
+          title: forked.title,
+          description: forked.description ?? '',
+          isPublic: forked.isPublic,
+          tags: forked.tags,
+        },
+        targetVehicleId: forked.vehicleId,
+        isDirty: false,
+        isSaving: false,
+        error: null,
+      });
+
+      if (forked.forkedFromSetupId) {
+        void get().loadParentForComparison(forked.forkedFromSetupId);
+      }
+
+      // Refresh fleet setup counts in garage store
+      void useGarageStore.getState().fetchVehicles();
+
+      return forked;
+    } catch (err: unknown) {
+      set({ error: errorMessage(err), isSaving: false });
+      throw err;
+    }
+  },
+
   loadParentForComparison: async (parentSetupId: string) => {
     try {
       const token = useAuthStore.getState().token;
@@ -439,5 +560,80 @@ export const useSetupStore = create<SetupState>((set, get) => ({
       error: null,
       validationErrors: {},
       comparisonParentSetup: null,
+      feedSetups: [],
+      feedFilters: { ...initialFeedFilters },
+      feedHasMore: false,
+      feedNextCursor: null,
+      isFeedLoading: false,
+      feedError: null,
     }),
+
+  // Community Feed Actions
+  fetchFeed: async (reset = false) => {
+    const { feedFilters, feedNextCursor, feedSetups } = get();
+    const token = useAuthStore.getState().token;
+
+    set({ isFeedLoading: true, feedError: null });
+
+    try {
+      const cursor = reset ? undefined : feedNextCursor ?? undefined;
+      const response = await apiGetFeed(
+        {
+          cursor,
+          limit: feedFilters.limit,
+          model: feedFilters.vehicleModel,
+          vehicleClass: feedFilters.vehicleClass,
+          surfaceType: feedFilters.surfaceType,
+          locationTag: feedFilters.locationTag,
+          tag: feedFilters.tag,
+          sortBy: feedFilters.sortBy,
+        },
+        token,
+      );
+
+      set({
+        feedSetups: reset ? response.items : [...feedSetups, ...response.items],
+        feedNextCursor: response.nextCursor,
+        feedHasMore: response.hasMore,
+        isFeedLoading: false,
+      });
+    } catch (err: unknown) {
+      set({
+        feedError: errorMessage(err),
+        isFeedLoading: false,
+      });
+    }
+  },
+
+  setFeedFilters: (filters: Partial<FeedFilters>) => {
+    const { feedFilters } = get();
+    set({
+      feedFilters: {
+        ...feedFilters,
+        ...filters,
+      },
+    });
+  },
+
+  toggleLike: async (setupId: string) => {
+    const token = requireToken();
+    try {
+      const result = await apiToggleLike(setupId, token);
+      // Optimistically or synchronously update feedSetups
+      set((state) => ({
+        feedSetups: state.feedSetups.map((item) =>
+          item.id === setupId
+            ? {
+                ...item,
+                isLikedByCaller: result.liked,
+                likeCount: result.likeCount,
+              }
+            : item,
+        ),
+      }));
+    } catch (err: unknown) {
+      set({ feedError: errorMessage(err) });
+      throw err;
+    }
+  },
 }));

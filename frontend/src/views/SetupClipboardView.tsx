@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChassisStickerPrinter } from '../components/qr/ChassisStickerPrinter';
+import { ForkDiffInspectorModal } from '../components/diff/ForkDiffInspectorModal';
+import { QrPitStickerPrinterModal } from '../components/qr/QrPitStickerPrinterModal';
 import { ClipboardActionBar } from '../components/setup/ClipboardActionBar';
 import { ClipboardHeaderClamp } from '../components/setup/ClipboardHeaderClamp';
 import { DrivetrainToolboxCard } from '../components/setup/DrivetrainToolboxCard';
@@ -28,6 +29,8 @@ export function SetupClipboardView({ onRequestAuth }: SetupClipboardViewProps) {
   const activeVehicleId = useGarageStore((state) => state.activeVehicleId);
 
   const activeSetup = useSetupStore((state) => state.activeSetup);
+  const activeSettings = useSetupStore((state) => state.activeSettings);
+  const comparisonParentSetup = useSetupStore((state) => state.comparisonParentSetup);
   const targetVehicleId = useSetupStore((state) => state.targetVehicleId);
   const isLoading = useSetupStore((state) => state.isLoading);
   const initNewSetup = useSetupStore((state) => state.initNewSetup);
@@ -35,6 +38,7 @@ export function SetupClipboardView({ onRequestAuth }: SetupClipboardViewProps) {
   const setTargetVehicleId = useSetupStore((state) => state.setTargetVehicleId);
 
   const [printQrOpen, setPrintQrOpen] = useState(false);
+  const [diffInspectorOpen, setDiffInspectorOpen] = useState(false);
 
   // Load setup if query param exists
   useEffect(() => {
@@ -109,7 +113,7 @@ export function SetupClipboardView({ onRequestAuth }: SetupClipboardViewProps) {
 
       {/* Main Clipboard Container */}
       <div className="relative">
-        <ClipboardHeaderClamp />
+        <ClipboardHeaderClamp onInspectParentDiff={() => setDiffInspectorOpen(true)} />
 
         {isLoading ? (
           <div className="p-12 text-center font-mono text-xs uppercase tracking-widest text-readout-dim">
@@ -136,58 +140,25 @@ export function SetupClipboardView({ onRequestAuth }: SetupClipboardViewProps) {
 
       {/* QR Code Sticker Preview Modal */}
       {printQrOpen && activeSetup?.qrSlug ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-pit-black/80 px-4"
-          role="presentation"
-          onClick={() => setPrintQrOpen(false)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="qr-sticker-title"
-            className="relative w-full max-w-sm border-t-2 border-l-2 border-pit-rubber bg-pit-steel p-6 shadow-beveled-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <span className="hex-rivet left-2 top-2" />
-            <span className="hex-rivet right-2 top-2" />
-            <h3
-              id="qr-sticker-title"
-              className="font-display text-2xl uppercase text-readout-bright"
-            >
-              Chassis Sticker Matrix
-            </h3>
-            <p className="mt-1 font-mono text-xs text-readout-dim">
-              Standard 1.5" x 1.5" Vinyl Chassis Tag (Level H ECC)
-            </p>
-
-            <div className="mt-4 flex justify-center border border-metal-border bg-pit-black p-4">
-              <ChassisStickerPrinter
-                chassisName={activeChassis ? `${activeChassis.make} ${activeChassis.model}` : 'RC Chassis'}
-                calculatedFdr={activeSetup.calculatedFdr}
-                qrSlug={activeSetup.qrSlug}
-                setupId={activeSetup.id}
-              />
-            </div>
-
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="flex-1 bg-hazard-orange py-2 font-display text-xs uppercase tracking-wider text-pit-black shadow-hazard-glow"
-              >
-                Print Sticker
-              </button>
-              <button
-                type="button"
-                onClick={() => setPrintQrOpen(false)}
-                className="border border-metal-border px-4 py-2 font-display text-xs uppercase tracking-wider text-readout-dim"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <QrPitStickerPrinterModal
+          open={printQrOpen}
+          onClose={() => setPrintQrOpen(false)}
+          chassisName={activeChassis ? `${activeChassis.make} ${activeChassis.model}` : 'RC Chassis'}
+          calculatedFdr={activeSetup.calculatedFdr}
+          qrSlug={activeSetup.qrSlug}
+          setupId={activeSetup.id}
+          setupTitle={activeSetup.title}
+        />
       ) : null}
+
+      {/* Fork Diff Inspector Modal */}
+      <ForkDiffInspectorModal
+        open={diffInspectorOpen}
+        onClose={() => setDiffInspectorOpen(false)}
+        parentSettings={comparisonParentSetup}
+        currentSettings={activeSettings}
+        currentTitle={activeSetup?.title ?? 'Active Fork'}
+      />
     </section>
   );
 }

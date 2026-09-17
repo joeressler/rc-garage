@@ -146,4 +146,60 @@ describe('SetupClipboardView', () => {
     expect(screen.getByText(/SLUG: \/s\/v9k2pq1x8m/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Print Chassis QR/i })).toBeInTheDocument();
   });
+
+  it('opens ForkDiffInspectorModal when View Diff is clicked on a forked setup', () => {
+    useAuthStore.setState({ token: 'test-token', isAuthenticated: true });
+    useGarageStore.setState({ vehicles: [VEHICLE], activeVehicleId: VEHICLE.id });
+
+    const parentSettings = defaultSetupSettings();
+    parentSettings.drivetrain.pinionTeeth = 14;
+
+    const forkedSetup: SetupEntity = {
+      ...SAVED_SETUP,
+      forkedFromSetupId: 'parent-setup-id',
+    };
+
+    useSetupStore.setState({
+      activeSetup: forkedSetup,
+      targetVehicleId: VEHICLE.id,
+      comparisonParentSetup: parentSettings,
+    });
+
+    // Update active settings to have 12T pinion (-2T)
+    useSetupStore.getState().updateGearing(12, 54, 2.6);
+
+    render(
+      <MemoryRouter>
+        <SetupClipboardView onRequestAuth={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/FORK OF ANCESTOR/i)).toBeInTheDocument();
+    const viewDiffBtn = screen.getByRole('button', { name: /View Diff/i });
+    fireEvent.click(viewDiffBtn);
+
+    expect(screen.getByText('Mechanical Lineage Deviations')).toBeInTheDocument();
+    expect(screen.getByText('-2T')).toBeInTheDocument();
+  });
+
+  it('opens QrPitStickerPrinterModal when Print Chassis QR is clicked', () => {
+    useAuthStore.setState({ token: 'test-token', isAuthenticated: true });
+    useGarageStore.setState({ vehicles: [VEHICLE], activeVehicleId: VEHICLE.id });
+    useSetupStore.setState({
+      activeSetup: SAVED_SETUP,
+      targetVehicleId: VEHICLE.id,
+    });
+
+    render(
+      <MemoryRouter>
+        <SetupClipboardView onRequestAuth={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    const printQrBtn = screen.getByRole('button', { name: /Print Chassis QR/i });
+    fireEvent.click(printQrBtn);
+
+    expect(screen.getByText('Pit-Mat Printing Bay')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Direct Print Chassis Tag/i })).toBeInTheDocument();
+  });
 });
