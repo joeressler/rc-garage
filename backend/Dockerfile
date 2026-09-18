@@ -27,6 +27,10 @@ FROM node:20-alpine AS runner
 
 WORKDIR /usr/src/app
 
+# Strip CRLF so a Windows-checked-out entrypoint still executes under Alpine sh.
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+RUN sed -i 's/\r$//' docker-entrypoint.sh ; chmod +x docker-entrypoint.sh
+
 # Establish non-root execution privileges
 USER node
 
@@ -41,5 +45,5 @@ ENV PORT=5742
 
 EXPOSE 5742
 
-# Enforce V8 heap size bounds aligned with container memory cap (256MB limit -> 192MB heap)
-CMD ["node", "--max-old-space-size=192", "dist/main.js"]
+# Apply pending SQL then start Nest with a 192MB heap (256MB container cap).
+CMD ["./docker-entrypoint.sh"]
