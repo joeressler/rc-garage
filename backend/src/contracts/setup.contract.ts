@@ -161,9 +161,18 @@ export const UpdateSetupSchema = CreateSetupSchema.partial();
 export const SetupIdSchema = z.string().uuid();
 
 export const ListSetupsQuerySchema = z.preprocess(
-  (value) => value ?? {},
+  (value) => {
+    const query = (value ?? {}) as Record<string, unknown>;
+    // Omit empty query strings so GET /setups can list the driver's full garage.
+    if (query.vehicleId === '') {
+      const rest = { ...query };
+      delete rest.vehicleId;
+      return rest;
+    }
+    return query;
+  },
   z.object({
-    vehicleId: z.string().uuid(),
+    vehicleId: z.string().uuid().optional(),
   }),
 );
 

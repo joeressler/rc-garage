@@ -166,6 +166,21 @@ export const UpdateSetupSchema = CreateSetupSchema.partial();
 
 export const SetupIdSchema = z.string().uuid();
 
+export const ListSetupsQuerySchema = z.preprocess(
+  (value) => {
+    const query = (value ?? {}) as Record<string, unknown>;
+    if (query.vehicleId === '') {
+      const rest = { ...query };
+      delete rest.vehicleId;
+      return rest;
+    }
+    return query;
+  },
+  z.object({
+    vehicleId: z.string().uuid().optional(),
+  }),
+);
+
 export type MotorType = z.infer<typeof MotorTypeEnum>;
 export type GearPitch = z.infer<typeof GearPitchEnum>;
 export type FluidUnit = z.infer<typeof FluidUnitEnum>;
@@ -183,6 +198,7 @@ export type TrackConditions = z.infer<typeof TrackConditionsSchema>;
 export type SetupSettings = z.infer<typeof SetupSettingsSchema>;
 export type CreateSetupDto = z.infer<typeof CreateSetupSchema>;
 export type UpdateSetupDto = z.infer<typeof UpdateSetupSchema>;
+export type ListSetupsQuery = z.infer<typeof ListSetupsQuerySchema>;
 
 export interface SetupSummary {
   id: string;
@@ -395,14 +411,213 @@ export function defaultSetupSettings(): SetupSettings {
   };
 }
 
-export function apiListSetups(token: string, vehicleId: string): Promise<SetupSummary[]> {
-  return apiJson<SetupSummary[]>(
-    `/api/garage/setups?vehicleId=${encodeURIComponent(vehicleId)}`,
-    {
-      method: 'GET',
-      token,
-    },
+function finiteNumber(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return fallback;
+}
+
+function optionalPositiveNumber(value: unknown): number | undefined {
+  const parsed = finiteNumber(value, Number.NaN);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function visibleText(value: unknown, fallback: string): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function hiddenText(value: unknown, fallback: string): string {
+  return typeof value === 'string' && value.trim().length > 0 ? value : fallback;
+}
+
+function inRange(value: number, min: number, max: number): boolean {
+  return value >= min && value <= max;
+}
+
+function prepareShock(
+  spec: Partial<ShockSpecification> | undefined,
+  fallback: ShockSpecification,
+): ShockSpecification {
+  const springRateLbsInch = optionalPositiveNumber(spec?.springRateLbsInch);
+  const shockLength = finiteNumber(spec?.shockLengthEyeToEyeMm, fallback.shockLengthEyeToEyeMm);
+  const pistonHoles = Math.round(finiteNumber(spec?.pistonHoles, fallback.pistonHoles));
+  const pistonHoleDiameterMm = finiteNumber(
+    spec?.pistonHoleDiameterMm,
+    fallback.pistonHoleDiameterMm,
   );
+  const droopMm = finiteNumber(spec?.droopMm, fallback.droopMm);
+  const swayBarDiameterMm = finiteNumber(spec?.swayBarDiameterMm, fallback.swayBarDiameterMm ?? 0);
+
+  return {
+    oilViscosityValue: finiteNumber(spec?.oilViscosityValue, fallback.oilViscosityValue),
+    oilViscosityUnit: FluidUnitEnum.safeParse(spec?.oilViscosityUnit).success
+      ? (spec?.oilViscosityUnit as FluidUnit)
+      : fallback.oilViscosityUnit,
+    springRateDescription: visibleText(spec?.springRateDescription, fallback.springRateDescription),
+    ...(springRateLbsInch !== undefined ? { springRateLbsInch } : {}),
+    pistonHoles: inRange(pistonHoles, 1, 8) ? pistonHoles : fallback.pistonHoles,
+    pistonHoleDiameterMm: inRange(pistonHoleDiameterMm, 0.5, 3)
+      ? pistonHoleDiameterMm
+      : fallback.pistonHoleDiameterMm,
+    shockLengthEyeToEyeMm: inRange(shockLength, 50, 160)
+      ? shockLength
+      : fallback.shockLengthEyeToEyeMm,
+    camberAngleDeg: finiteNumber(spec?.camberAngleDeg, fallback.camberAngleDeg),
+    toeAngleDeg: finiteNumber(spec?.toeAngleDeg, fallback.toeAngleDeg),
+    rideHeightMm: finiteNumber(spec?.rideHeightMm, fallback.rideHeightMm),
+    droopMm: inRange(droopMm, 0, 50) ? droopMm : fallback.droopMm,
+    swayBarDiameterMm: inRange(swayBarDiameterMm, 0, 5) ? swayBarDiameterMm : 0,
+  };
+}
+
+function prepareTire(
+  spec: Partial<AxleTireSpecification> | undefined,
+  fallback: AxleTireSpecification,
+): AxleTireSpecification {
+  const wheelDiameterInch = finiteNumber(spec?.wheelDiameterInch, fallback.wheelDiameterInch);
+  const knuckleWeightGramsPerSide = finiteNumber(
+    spec?.knuckleWeightGramsPerSide,
+    fallback.knuckleWeightGramsPerSide,
+  );
+
+  return {
+    brand: hiddenText(spec?.brand, fallback.brand),
+    model: hiddenText(spec?.model, fallback.model),
+    compound: visibleText(spec?.compound, fallback.compound),
+    wheelDiameterInch: wheelDiameterInch > 0 ? wheelDiameterInch : fallback.wheelDiameterInch,
+    insertType: FoamInsertTypeEnum.safeParse(spec?.insertType).success
+      ? (spec?.insertType as FoamInsertType)
+      : fallback.insertType,
+    brassWheelWeightGramsPerWheel: finiteNumber(
+      spec?.brassWheelWeightGramsPerWheel,
+      fallback.brassWheelWeightGramsPerWheel,
+    ),
+    knuckleWeightGramsPerSide: inRange(knuckleWeightGramsPerSide, 0, 300)
+      ? knuckleWeightGramsPerSide
+      : fallback.knuckleWeightGramsPerSide,
+    ventedTireRims:
+      typeof spec?.ventedTireRims === 'boolean' ? spec.ventedTireRims : fallback.ventedTireRims,
+  };
+}
+
+/**
+ * Purpose: keep clipboard save from failing on hidden/null telemetry that the editor cannot highlight.
+ */
+export function prepareSettingsForSave(settings: SetupSettings): SetupSettings {
+  const defaults = defaultSetupSettings();
+  const pinionTeeth = finiteNumber(settings.drivetrain?.pinionTeeth, defaults.drivetrain.pinionTeeth);
+  const spurTeeth = finiteNumber(settings.drivetrain?.spurTeeth, defaults.drivetrain.spurTeeth);
+  const transmissionInternalRatio = finiteNumber(
+    settings.drivetrain?.transmissionInternalRatio,
+    defaults.drivetrain.transmissionInternalRatio,
+  );
+  const portalGearsInstalled = settings.suspension?.portalGearsInstalled === true;
+  const portalBoxRatio = optionalPositiveNumber(settings.suspension?.portalBoxRatio);
+  const motorKv = optionalPositiveNumber(settings.drivetrain?.motorKv);
+  const frontWeight = finiteNumber(
+    settings.tiresAndWeight?.weight?.frontAxleWeightGrams,
+    defaults.tiresAndWeight.weight.frontAxleWeightGrams,
+  );
+  const rearWeight = finiteNumber(
+    settings.tiresAndWeight?.weight?.rearAxleWeightGrams,
+    defaults.tiresAndWeight.weight.rearAxleWeightGrams,
+  );
+  const totalRtrWeightGrams = frontWeight + rearWeight;
+  const bias = calculateCogBias(frontWeight, totalRtrWeightGrams);
+  const batteryCellCount = Math.round(
+    finiteNumber(settings.drivetrain?.batteryCellCount, defaults.drivetrain.batteryCellCount),
+  );
+  const underdriveOverdrivePercentage = finiteNumber(
+    settings.drivetrain?.underdriveOverdrivePercentage,
+    defaults.drivetrain.underdriveOverdrivePercentage,
+  );
+  const gearPitch = GearPitchEnum.safeParse(settings.drivetrain?.gearPitch);
+  const motorType = MotorTypeEnum.safeParse(settings.drivetrain?.motorType);
+  const batteryMount = BatteryPositionEnum.safeParse(
+    settings.tiresAndWeight?.weight?.batteryMountLocation,
+  );
+  const surface = SurfaceTypeEnum.safeParse(settings.trackConditions?.surface);
+  const grip = GripLevelEnum.safeParse(settings.trackConditions?.grip);
+
+  return {
+    drivetrain: {
+      pinionTeeth,
+      spurTeeth,
+      transmissionInternalRatio,
+      calculatedFdr: calculateFdr({
+        pinionTeeth,
+        spurTeeth,
+        transmissionInternalRatio,
+        portalGearsInstalled,
+        portalBoxRatio,
+      }),
+      gearPitch: gearPitch.success ? gearPitch.data : defaults.drivetrain.gearPitch,
+      ...(motorKv !== undefined && motorKv >= 500 && motorKv <= 12000
+        ? { motorKv: Math.round(motorKv) }
+        : {}),
+      motorType: motorType.success ? motorType.data : defaults.drivetrain.motorType,
+      batteryCellCount: inRange(batteryCellCount, 1, 8)
+        ? batteryCellCount
+        : defaults.drivetrain.batteryCellCount,
+      underdriveOverdrivePercentage: inRange(underdriveOverdrivePercentage, -50, 50)
+        ? underdriveOverdrivePercentage
+        : defaults.drivetrain.underdriveOverdrivePercentage,
+    },
+    suspension: {
+      front: prepareShock(settings.suspension?.front, defaults.suspension.front),
+      rear: prepareShock(settings.suspension?.rear, defaults.suspension.rear),
+      portalGearsInstalled,
+      ...(portalBoxRatio !== undefined ? { portalBoxRatio } : {}),
+      diffFluidFrontWeight: optionalText(settings.suspension?.diffFluidFrontWeight),
+      diffFluidCenterWeight: optionalText(settings.suspension?.diffFluidCenterWeight),
+      diffFluidRearWeight: optionalText(settings.suspension?.diffFluidRearWeight),
+    },
+    tiresAndWeight: {
+      front: prepareTire(settings.tiresAndWeight?.front, defaults.tiresAndWeight.front),
+      rear: prepareTire(settings.tiresAndWeight?.rear, defaults.tiresAndWeight.rear),
+      weight: {
+        totalRtrWeightGrams,
+        frontAxleWeightGrams: frontWeight,
+        rearAxleWeightGrams: rearWeight,
+        frontWeightBiasPercentage: bias.frontBiasPercentage,
+        rearWeightBiasPercentage: bias.rearBiasPercentage,
+        batteryMountLocation: batteryMount.success
+          ? batteryMount.data
+          : defaults.tiresAndWeight.weight.batteryMountLocation,
+      },
+    },
+    trackConditions: {
+      surface: surface.success ? surface.data : defaults.trackConditions.surface,
+      grip: grip.success ? grip.data : defaults.trackConditions.grip,
+      ambientTempCelsius: optionalFiniteAmbient(settings.trackConditions?.ambientTempCelsius),
+      locationTag: optionalText(settings.trackConditions?.locationTag),
+    },
+    driverNotes: visibleText(settings.driverNotes, ''),
+  };
+}
+
+function optionalText(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function optionalFiniteAmbient(value: unknown): number | undefined {
+  const parsed = finiteNumber(value, Number.NaN);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+export function apiListSetups(token: string, vehicleId?: string): Promise<SetupSummary[]> {
+  const query = vehicleId ? `?vehicleId=${encodeURIComponent(vehicleId)}` : '';
+  return apiJson<SetupSummary[]>(`/api/garage/setups${query}`, {
+    method: 'GET',
+    token,
+  });
 }
 
 export function apiGetSetup(setupId: string, token?: string | null): Promise<SetupEntity> {

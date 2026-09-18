@@ -134,6 +134,7 @@ async function main(): Promise<void> {
 
     for (const [method, path] of [
       ['POST', '/setups'],
+      ['GET', '/setups'],
       ['GET', '/setups?vehicleId=00000000-0000-4000-8000-000000000001'],
       ['PUT', '/setups/00000000-0000-4000-8000-000000000001'],
       ['DELETE', '/setups/00000000-0000-4000-8000-000000000001'],
@@ -184,12 +185,16 @@ async function main(): Promise<void> {
     assert(vehicleB.status === 201, `create vehicle B failed: ${vehicleB.status}`);
     const vehicleBId = vehicleB.body.data.id as string;
 
-    const missingVehicleId = await request(baseUrl, 'GET', '/setups', {
+    const emptyAccountList = await request(baseUrl, 'GET', '/setups', {
       token: tokenA,
     });
     assert(
-      missingVehicleId.status === 400,
-      `list without vehicleId should 400, got ${missingVehicleId.status}`,
+      emptyAccountList.status === 200,
+      `account list without vehicleId should 200, got ${emptyAccountList.status}`,
+    );
+    assert(
+      Array.isArray(emptyAccountList.body.data) && emptyAccountList.body.data.length === 0,
+      'new driver should have an empty garage sheet list',
     );
 
     const badGears = await request(baseUrl, 'POST', '/setups', {
@@ -335,6 +340,20 @@ async function main(): Promise<void> {
       'list should include the new setup summary',
     );
 
+    const accountListed = await request(baseUrl, 'GET', '/setups', {
+      token: tokenA,
+    });
+    assert(
+      accountListed.status === 200,
+      `account-wide list failed: ${accountListed.status}`,
+    );
+    assert(
+      (accountListed.body.data as Array<{ id: string }>).some(
+        (item) => item.id === setup.id,
+      ),
+      'account-wide list should include the new setup',
+    );
+
     const publicAnon = await request(baseUrl, 'GET', `/setups/${setup.id}`);
     assert(publicAnon.status === 200, `public GET without JWT should 200, got ${publicAnon.status}`);
     assert(publicAnon.body.data.title === 'Rubicon Low-CoG', 'anonymous public read should return sheet');
@@ -464,6 +483,92 @@ async function main(): Promise<void> {
         (item) => item.id === setup.id,
       ),
       'vehicle detail should include setup summaries',
+    );
+
+    const secondBay = await request(baseUrl, 'POST', '/vehicles', {
+      token: tokenA,
+      body: {
+        name: 'Second Bay',
+        make: 'Axial',
+        model: 'SCX10 III',
+      },
+    });
+    assert(secondBay.status === 201, `second chassis failed: ${secondBay.status}`);
+    const vehicleA2Id = secondBay.body.data.id as string;
+
+    const secondBaySetup = await request(baseUrl, 'POST', '/setups', {
+      token: tokenA,
+      body: {
+        vehicleId: vehicleA2Id,
+        title: 'SCX Comp Spec',
+        settings: buildSettings(),
+      },
+    });
+    assert(
+      secondBaySetup.status === 201,
+      `second chassis setup failed: ${secondBaySetup.status}`,
+    );
+    const secondBaySetupId = secondBaySetup.body.data.id as string;
+
+    const allGarageSheets = await request(baseUrl, 'GET', '/setups', {
+      token: tokenA,
+    });
+    assert(
+      allGarageSheets.status === 200,
+      `all-garage list failed: ${allGarageSheets.status}`,
+    );
+    const allGarageIds = (allGarageSheets.body.data as Array<{ id: string; vehicleId: string }>).map(
+      (item) => item.id,
+    );
+    assert(
+      allGarageIds.includes(setup.id) && allGarageIds.includes(secondBaySetupId),
+      'account-wide list should include sheets from every owned chassis',
+    );
+
+    const secondChassisOnly = await request(
+      baseUrl,
+      'GET',
+      `/setups?vehicleId=${vehicleA2Id}`,
+      { token: tokenA },
+    );
+    assert(
+      secondChassisOnly.status === 200,
+      `second chassis list failed: ${secondChassisOnly.status}`,
+    );
+    const secondChassisRows = secondChassisOnly.body.data as Array<{ id: string }>;
+    assert(
+      secondChassisRows.length === 1 && secondChassisRows[0]?.id === secondBaySetupId,
+      'vehicle-scoped list must not mix chassis',
+    );
+
+    const reassigned = await request(baseUrl, 'PUT', `/setups/${setup.id}`, {
+      token: tokenA,
+      body: { vehicleId: vehicleA2Id },
+    });
+    assert(
+      reassigned.status === 400,
+      `moving a sheet to another chassis should 400, got ${reassigned.status}`,
+    );
+    const stillOnOriginalBay = await request(baseUrl, 'GET', `/setups/${setup.id}`, {
+      token: tokenA,
+    });
+    assert(
+      stillOnOriginalBay.body.data.vehicleId === vehicleAId,
+      'update must not restamp a sheet onto a different chassis',
+    );
+
+    const foreignAccountList = await request(baseUrl, 'GET', '/setups', {
+      token: tokenB,
+    });
+    assert(
+      foreignAccountList.status === 200,
+      `foreign account list failed: ${foreignAccountList.status}`,
+    );
+    assert(
+      (foreignAccountList.body.data as Array<{ id: string }>).every(
+        (item) => item.id !== setup.id && item.id !== secondBaySetupId,
+      ),
+      'account-wide list must not leak another driver sheets',
     );
 
     const deleted = await request(baseUrl, 'DELETE', `/setups/${privateId}`, {

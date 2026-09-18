@@ -23,6 +23,8 @@ export function ClipboardActionBar({
   const saveCurrentSetup = useSetupStore((state) => state.saveCurrentSetup);
   const activeSetup = useSetupStore((state) => state.activeSetup);
   const error = useSetupStore((state) => state.error);
+  const validationErrors = useSetupStore((state) => state.validationErrors);
+  const validationMessages = [...new Set(Object.values(validationErrors))];
 
   const hasSavedSlug = !!activeSetup?.qrSlug;
 
@@ -45,7 +47,14 @@ export function ClipboardActionBar({
 
       {error ? (
         <div className="mb-4 border border-hazard-stripe bg-pit-black p-3 font-mono text-xs text-hazard-orange">
-          {error}
+          <p>{error}</p>
+          {validationMessages.length > 0 ? (
+            <ul className="mt-2 list-disc space-y-1 pl-4">
+              {validationMessages.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
 

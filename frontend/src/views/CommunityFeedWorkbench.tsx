@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { FeedItem } from '../api/feed';
 import type { SurfaceType } from '../api/setups';
 import type { VehicleClass } from '../api/vehicles';
 import { FeedFilterDrawer } from '../components/feed/FeedFilterDrawer';
+import {
+  ForkToGarageModal,
+  type ForkToGarageSource,
+} from '../components/feed/ForkToGarageModal';
+import { SetupInspectOverlay } from '../components/feed/SetupInspectOverlay';
 import { SetupSheetCard } from '../components/feed/SetupSheetCard';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useGarageStore } from '../stores/useGarageStore';
@@ -18,6 +23,10 @@ interface CommunityFeedWorkbenchProps {
  */
 export function CommunityFeedWorkbench({ onRequestAuth }: CommunityFeedWorkbenchProps) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { slug } = useParams<{ slug: string }>();
+  const inspectSetupId = searchParams.get('inspect');
+
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const vehicles = useGarageStore((state) => state.vehicles);
   const activeVehicleId = useGarageStore((state) => state.activeVehicleId);
@@ -33,18 +42,15 @@ export function CommunityFeedWorkbench({ onRequestAuth }: CommunityFeedWorkbench
   const toggleLike = useSetupStore((state) => state.toggleLike);
   const forkSetupIntoGarage = useSetupStore((state) => state.forkSetupIntoGarage);
 
-  // Fork Modal State
-  const [forkModalOpen, setForkModalOpen] = useState(false);
-  const [selectedFeedItem, setSelectedFeedItem] = useState<FeedItem | null>(null);
-  const [targetVehicleId, setTargetVehicleId] = useState<string>('');
-  const [forkTitle, setForkTitle] = useState<string>('');
-  const [isForking, setIsForking] = useState(false);
-  const [forkError, setForkError] = useState<string | null>(null);
+  const [forkSource, setForkSource] = useState<ForkToGarageSource | null>(null);
 
-  // Search input debouncer / local state
   const [searchInput, setSearchInput] = useState(feedFilters.vehicleModel ?? '');
 
-  // Fetch feed on initial mount and when filters change
+  const inspectedFeedItem = inspectSetupId
+    ? feedSetups.find((item) => item.id === inspectSetupId)
+    : undefined;
+  const inspectOpen = Boolean(inspectSetupId || slug);
+
   useEffect(() => {
     void fetchFeed(true);
   }, [
@@ -82,43 +88,40 @@ export function CommunityFeedWorkbench({ onRequestAuth }: CommunityFeedWorkbench
   };
 
   const handleInspect = (item: FeedItem) => {
-    navigate(`/clipboard?setupId=${encodeURIComponent(item.id)}`);
+    navigate(`/feed?inspect=${encodeURIComponent(item.id)}`);
   };
 
-  const handleQuickFork = (item: FeedItem) => {
+  const handleCloseInspect = () => {
+    navigate('/feed', { replace: true });
+  };
+
+  const handleOpenFork = (source: ForkToGarageSource) => {
     if (!isAuthenticated) {
       onRequestAuth();
       return;
     }
-    setSelectedFeedItem(item);
-    setForkTitle(`Fork of ${item.title}`);
-    setTargetVehicleId(activeVehicleId ?? (vehicles[0]?.id || ''));
-    setForkError(null);
-    setForkModalOpen(true);
+    setForkSource(source);
   };
 
-  const handleConfirmFork = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedFeedItem || !targetVehicleId) {
-      setForkError('Please choose a vehicle in your garage.');
-      return;
-    }
+  const handleQuickFork = (item: FeedItem) => {
+    handleOpenFork({
+      id: item.id,
+      title: item.title,
+      authorCallsign: item.author.callsign,
+    });
+  };
 
-    setIsForking(true);
-    setForkError(null);
-    try {
-      const forked = await forkSetupIntoGarage(
-        selectedFeedItem.id,
-        targetVehicleId,
-        forkTitle,
-      );
-      setForkModalOpen(false);
-      navigate(`/clipboard?setupId=${encodeURIComponent(forked.id)}`);
-    } catch (err: unknown) {
-      setForkError(err instanceof Error ? err.message : 'Fork failed');
-    } finally {
-      setIsForking(false);
+  const handleConfirmFork = async (payload: { targetVehicleId: string; title: string }) => {
+    if (!forkSource) {
+      throw new Error('No setup selected to fork.');
     }
+    const forked = await forkSetupIntoGarage(
+      forkSource.id,
+      payload.targetVehicleId,
+      payload.title,
+    );
+    setForkSource(null);
+    navigate(`/clipboard?setupId=${encodeURIComponent(forked.id)}`);
   };
 
   const handleToggleLike = async (item: FeedItem) => {
@@ -237,110 +240,23 @@ export function CommunityFeedWorkbench({ onRequestAuth }: CommunityFeedWorkbench
         ) : null}
       </div>
 
-      {/* Quick Fork Modal */}
-      {forkModalOpen && selectedFeedItem ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="fork-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-pit-black/80 p-4 backdrop-blur-sm"
-        >
-          <div className="relative w-full max-w-lg border-2 border-pit-rubber bg-pit-steel p-6 shadow-beveled-panel">
-            <div className="flex items-center justify-between border-b border-metal-border pb-3">
-              <h2
-                id="fork-modal-title"
-                className="font-display text-lg font-bold uppercase tracking-wider text-readout-bright"
-              >
-                Fork Telemetry into Garage
-              </h2>
-              <button
-                type="button"
-                onClick={() => setForkModalOpen(false)}
-                className="font-mono text-sm text-readout-muted hover:text-readout-bright"
-              >
-                ✕
-              </button>
-            </div>
+      <SetupInspectOverlay
+        open={inspectOpen}
+        setupId={inspectSetupId}
+        slug={slug}
+        authorCallsign={inspectedFeedItem?.author.callsign}
+        onClose={handleCloseInspect}
+        onRequestFork={handleOpenFork}
+      />
 
-            <form onSubmit={(e) => void handleConfirmFork(e)} className="mt-4 space-y-4">
-              {forkError ? (
-                <p className="border border-nitromethane/50 bg-nitromethane/10 p-2 font-mono text-xs text-nitromethane">
-                  {forkError}
-                </p>
-              ) : null}
-
-              <div>
-                <span className="block font-mono text-[10px] uppercase tracking-widest text-readout-muted">
-                  Source Setup Sheet
-                </span>
-                <p className="font-display text-sm font-bold text-readout-bright">
-                  {selectedFeedItem.title}{' '}
-                  <span className="font-mono text-xs font-normal text-hazard-orange">
-                    (@{selectedFeedItem.author.callsign})
-                  </span>
-                </p>
-              </div>
-
-              <div>
-                <label className="block">
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-readout-muted">
-                    New Setup Title
-                  </span>
-                  <input
-                    type="text"
-                    required
-                    value={forkTitle}
-                    onChange={(e) => setForkTitle(e.target.value)}
-                    className="mt-1 w-full border border-metal-border bg-pit-black px-3 py-2 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
-                  />
-                </label>
-              </div>
-
-              <div>
-                <label className="block">
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-readout-muted">
-                    Assign to Fleet Vehicle
-                  </span>
-                  {vehicles.length > 0 ? (
-                    <select
-                      value={targetVehicleId}
-                      onChange={(e) => setTargetVehicleId(e.target.value)}
-                      className="mt-1 w-full border border-metal-border bg-pit-black px-3 py-2 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
-                    >
-                      {vehicles.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.name} — {v.make} {v.model} ({v.scale})
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <p className="mt-1 font-mono text-xs text-hazard-orange">
-                      You need at least one vehicle in your garage to fork a setup sheet.
-                    </p>
-                  )}
-                </label>
-              </div>
-
-              <div className="mt-6 flex items-center justify-end gap-3 border-t border-metal-border pt-4">
-                <button
-                  type="button"
-                  onClick={() => setForkModalOpen(false)}
-                  className="border border-metal-border bg-pit-black px-4 py-2 font-mono text-xs uppercase tracking-wider text-readout-dim hover:text-readout-bright"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isForking || vehicles.length === 0}
-                  className="border border-hazard-orange bg-hazard-orange px-5 py-2 font-display text-xs font-bold uppercase tracking-wider text-pit-black hover:bg-hazard-orange/90 disabled:opacity-50"
-                >
-                  {isForking ? 'Forking Spec…' : 'Fork Setup Sheet'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      <ForkToGarageModal
+        open={forkSource !== null}
+        source={forkSource}
+        vehicles={vehicles}
+        defaultVehicleId={activeVehicleId ?? vehicles[0]?.id}
+        onClose={() => setForkSource(null)}
+        onConfirm={handleConfirmFork}
+      />
     </div>
   );
 }

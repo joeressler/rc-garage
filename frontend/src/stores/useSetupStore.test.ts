@@ -20,6 +20,20 @@ const VEHICLE: Vehicle = {
   updatedAt: '2026-09-16T00:00:00.000Z',
 };
 
+const VEHICLE_B: Vehicle = {
+  id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  userId: VEHICLE.userId,
+  name: 'Capra Trail Rig',
+  make: 'Axial',
+  model: 'Capra',
+  scale: '1/10',
+  vehicleClass: 'crawler_scale',
+  isArchived: false,
+  setupCount: 1,
+  createdAt: '2026-09-16T00:00:00.000Z',
+  updatedAt: '2026-09-16T00:00:00.000Z',
+};
+
 const SAVED_SETUP: SetupEntity = {
   id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
   vehicleId: VEHICLE.id,
@@ -40,6 +54,15 @@ const SAVED_SETUP: SetupEntity = {
   rootAncestorSetupId: null,
   createdAt: '2026-09-16T00:00:00.000Z',
   updatedAt: '2026-09-16T00:00:00.000Z',
+};
+
+const CAPRA_SETUP: SetupEntity = {
+  ...SAVED_SETUP,
+  id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+  vehicleId: VEHICLE_B.id,
+  title: 'Capra Night Practice',
+  qrSlug: 'capra1x8m2',
+  calculatedFdr: 9.45,
 };
 
 function envelope<T>(data: T, statusCode = 200) {
@@ -185,6 +208,201 @@ describe('useSetupStore', () => {
         method: 'PUT',
       }),
     );
+    const updateBody = JSON.parse(
+      String(vi.mocked(fetch).mock.calls[0]?.[1]?.body ?? '{}'),
+    ) as { vehicleId?: string };
+    expect(updateBody.vehicleId).toBeUndefined();
+  });
+
+  it('saves a sheet that uses a custom internal ratio and edited shock/tire values', async () => {
+    useAuthStore.setState({ token: TOKEN, isAuthenticated: true });
+    useGarageStore.setState({ vehicles: [VEHICLE], activeVehicleId: VEHICLE.id });
+    useSetupStore.getState().setTargetVehicleId(VEHICLE.id);
+    useSetupStore.getState().updateGearing(14, 54, 3.25);
+    useSetupStore.getState().updateSuspensionCorner('front', {
+      oilViscosityValue: 400,
+      springRateDescription: '1.8 lb/in',
+      rideHeightMm: 70,
+    });
+    useSetupStore.getState().updateTires('front', { compound: 'Sticky' });
+
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(envelope(SAVED_SETUP, 201)));
+
+    await expect(useSetupStore.getState().saveCurrentSetup()).resolves.toMatchObject({
+      qrSlug: 'v9k2pq1x8m',
+    });
+  });
+
+  it('saves a custom ratio when loaded telemetry has null hidden fields', async () => {
+    useAuthStore.setState({ token: TOKEN, isAuthenticated: true });
+    useGarageStore.setState({ vehicles: [VEHICLE], activeVehicleId: VEHICLE.id });
+
+    const loaded = defaultSetupSettings();
+    const dirty = {
+      ...loaded,
+      drivetrain: {
+        ...loaded.drivetrain,
+        motorKv: null,
+        transmissionInternalRatio: '2.6',
+      },
+      suspension: {
+        ...loaded.suspension,
+        portalBoxRatio: null,
+        front: { ...loaded.suspension.front, springRateLbsInch: null },
+        rear: { ...loaded.suspension.rear, shockLengthEyeToEyeMm: undefined },
+      },
+      trackConditions: {
+        ...loaded.trackConditions,
+        locationTag: null,
+        ambientTempCelsius: null,
+      },
+      driverNotes: null,
+    };
+
+    useSetupStore.setState({
+      activeSettings: dirty as unknown as SetupEntity['settings'],
+      targetVehicleId: VEHICLE.id,
+      meta: {
+        title: 'Custom Ratio Spec',
+        description: '',
+        isPublic: true,
+        tags: [],
+      },
+    });
+    useSetupStore.getState().updateGearing(14, 54, 3.25);
+    useSetupStore.getState().updateSuspensionCorner('front', {
+      oilViscosityValue: 400,
+      springRateDescription: '1.8 lb/in',
+    });
+    useSetupStore.getState().updateTires('front', { compound: 'Sticky' });
+
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(envelope(SAVED_SETUP, 201)));
+
+    await expect(useSetupStore.getState().saveCurrentSetup()).resolves.toMatchObject({
+      qrSlug: 'v9k2pq1x8m',
+    });
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0]?.[1]?.body ?? '{}')) as {
+      settings: { drivetrain: { transmissionInternalRatio: number; calculatedFdr: number } };
+    };
+    expect(body.settings.drivetrain.transmissionInternalRatio).toBe(3.25);
+    expect(body.settings.drivetrain.calculatedFdr).toBe(12.54);
+  });
+
+  it('keeps field-level messages when save validation fails on shock or tire inputs', async () => {
+    useAuthStore.setState({ token: TOKEN, isAuthenticated: true });
+    useGarageStore.setState({ vehicles: [VEHICLE], activeVehicleId: VEHICLE.id });
+    useSetupStore.getState().setTargetVehicleId(VEHICLE.id);
+    useSetupStore.getState().updateGearing(14, 54, 3.25);
+    useSetupStore.getState().updateSuspensionCorner('front', { springRateDescription: '' });
+    useSetupStore.getState().updateTires('rear', { compound: '' });
+
+    await expect(useSetupStore.getState().saveCurrentSetup()).rejects.toThrow(/Validation failed/);
+    const errors = useSetupStore.getState().validationErrors;
+    expect(errors['settings.suspension.front.springRateDescription']).toMatch(/spring rate/i);
+    expect(errors['settings.tiresAndWeight.rear.compound']).toMatch(/compound/i);
+    expect(useSetupStore.getState().error).toMatch(/highlighted telemetry/i);
+  });
+
+  it('creates a new sheet when the editor is pointed at a different chassis', async () => {
+    useAuthStore.setState({ token: TOKEN, isAuthenticated: true });
+    useGarageStore.setState({
+      vehicles: [VEHICLE, VEHICLE_B],
+      activeVehicleId: VEHICLE_B.id,
+    });
+    useSetupStore.setState({
+      activeSetup: SAVED_SETUP,
+      targetVehicleId: VEHICLE_B.id,
+      meta: {
+        title: SAVED_SETUP.title,
+        description: SAVED_SETUP.description ?? '',
+        isPublic: SAVED_SETUP.isPublic,
+        tags: SAVED_SETUP.tags,
+      },
+    });
+
+    const created = { ...CAPRA_SETUP, id: 'new-setup-uuid', title: SAVED_SETUP.title };
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(envelope(created, 201)));
+
+    const saved = await useSetupStore.getState().saveCurrentSetup();
+
+    expect(saved.id).toBe('new-setup-uuid');
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/garage/setups',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+    const createBody = JSON.parse(
+      String(vi.mocked(fetch).mock.calls[0]?.[1]?.body ?? '{}'),
+    ) as { vehicleId?: string };
+    expect(createBody.vehicleId).toBe(VEHICLE_B.id);
+  });
+
+  it('loads the latest spec for a chassis or starts a draft when none exist', async () => {
+    useAuthStore.setState({ token: TOKEN, isAuthenticated: true });
+    useGarageStore.setState({
+      vehicles: [VEHICLE, VEHICLE_B],
+      activeVehicleId: VEHICLE.id,
+    });
+    useSetupStore.setState({
+      activeSetup: SAVED_SETUP,
+      targetVehicleId: VEHICLE.id,
+      meta: {
+        title: SAVED_SETUP.title,
+        description: SAVED_SETUP.description ?? '',
+        isPublic: SAVED_SETUP.isPublic,
+        tags: SAVED_SETUP.tags,
+      },
+    });
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = (init?.method ?? 'GET').toUpperCase();
+      if (url.includes(`vehicleId=${VEHICLE_B.id}`)) {
+        return jsonResponse(
+          envelope([
+            {
+              id: CAPRA_SETUP.id,
+              vehicleId: CAPRA_SETUP.vehicleId,
+              userId: CAPRA_SETUP.userId,
+              title: CAPRA_SETUP.title,
+              isPublic: CAPRA_SETUP.isPublic,
+              calculatedFdr: CAPRA_SETUP.calculatedFdr,
+              frontBiasPercentage: CAPRA_SETUP.frontBiasPercentage,
+              surfaceType: CAPRA_SETUP.surfaceType,
+              forkCount: CAPRA_SETUP.forkCount,
+              likeCount: CAPRA_SETUP.likeCount,
+              qrSlug: CAPRA_SETUP.qrSlug,
+              isForked: false,
+              createdAt: CAPRA_SETUP.createdAt,
+            },
+          ]),
+        );
+      }
+      if (url.includes(`/api/garage/setups/${CAPRA_SETUP.id}`)) {
+        return jsonResponse(envelope(CAPRA_SETUP));
+      }
+      throw new Error(`unexpected fetch ${method} ${url}`);
+    });
+
+    const loaded = await useSetupStore.getState().activateChassis(VEHICLE_B.id);
+    expect(useSetupStore.getState().error).toBeNull();
+    expect(loaded?.id).toBe(CAPRA_SETUP.id);
+    expect(useSetupStore.getState().activeSetup?.vehicleId).toBe(VEHICLE_B.id);
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes(`vehicleId=${VEHICLE.id}`)) {
+        return jsonResponse(envelope([]));
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    const drafted = await useSetupStore.getState().activateChassis(VEHICLE.id);
+    expect(drafted).toBeNull();
+    expect(useSetupStore.getState().activeSetup).toBeNull();
+    expect(useSetupStore.getState().targetVehicleId).toBe(VEHICLE.id);
+    expect(useSetupStore.getState().meta.title).toBe('Vanquish VS4-10 Phoenix Spec');
   });
 
   it('fetches community feed and tracks pagination cursor', async () => {

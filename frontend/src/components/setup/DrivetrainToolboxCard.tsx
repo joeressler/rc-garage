@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { TRANSMISSION_PRESETS } from '../../api/setups';
 import { formatFdr } from '../../lib/vehicle-labels';
 import { useSetupStore } from '../../stores/useSetupStore';
@@ -9,20 +10,29 @@ export function DrivetrainToolboxCard() {
   const drivetrain = useSetupStore((state) => state.activeSettings.drivetrain);
   const updateGearing = useSetupStore((state) => state.updateGearing);
   const validationErrors = useSetupStore((state) => state.validationErrors);
+  const activeSetupId = useSetupStore((state) => state.activeSetup?.id);
 
   const pinion = drivetrain.pinionTeeth;
   const spur = drivetrain.spurTeeth;
   const internalRatio = drivetrain.transmissionInternalRatio;
   const calculatedFdr = drivetrain.calculatedFdr ?? 0;
+  // Keep Custom selected even when the current ratio still matches a named gearbox preset.
+  const [useCustomRatio, setUseCustomRatio] = useState(false);
+
+  useEffect(() => {
+    setUseCustomRatio(false);
+  }, [activeSetupId]);
 
   const gearingError =
     validationErrors['settings.drivetrain.spurTeeth'] ||
     validationErrors['settings.drivetrain.pinionTeeth'] ||
     validationErrors['settings.drivetrain'];
+  const ratioError = validationErrors['settings.drivetrain.transmissionInternalRatio'];
 
   const isPresetMatch = TRANSMISSION_PRESETS.some(
     (preset) => Math.abs(preset.internalRatio - internalRatio) < 0.001,
   );
+  const showCustomRatio = useCustomRatio || !isPresetMatch;
 
   return (
     <article className="relative border-t-2 border-l-2 border-pit-rubber bg-pit-steel p-5 shadow-beveled-panel">
@@ -135,11 +145,14 @@ export function DrivetrainToolboxCard() {
           <div className="mt-1 flex flex-col gap-2 sm:flex-row">
             <select
               id="transmission-presets-select"
-              value={isPresetMatch ? internalRatio.toString() : 'custom'}
+              value={showCustomRatio ? 'custom' : internalRatio.toString()}
               onChange={(e) => {
-                if (e.target.value !== 'custom') {
-                  updateGearing(pinion, spur, parseFloat(e.target.value));
+                if (e.target.value === 'custom') {
+                  setUseCustomRatio(true);
+                  return;
                 }
+                setUseCustomRatio(false);
+                updateGearing(pinion, spur, parseFloat(e.target.value));
               }}
               className="flex-1 border border-metal-border bg-pit-black px-3 py-1.5 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
             >
@@ -153,19 +166,29 @@ export function DrivetrainToolboxCard() {
             <div className="flex items-center gap-1 font-mono text-xs">
               <input
                 type="number"
+                aria-label="Custom internal ratio"
                 step="0.01"
                 min={1.0}
                 max={6.0}
                 value={internalRatio}
                 onChange={(e) => {
                   const val = parseFloat(e.target.value);
-                  if (!Number.isNaN(val)) updateGearing(pinion, spur, val);
+                  if (Number.isNaN(val)) {
+                    return;
+                  }
+                  setUseCustomRatio(true);
+                  updateGearing(pinion, spur, val);
                 }}
-                className="w-20 border border-metal-border bg-pit-black px-2 py-1.5 text-right font-mono text-readout-bright outline-none focus:border-hazard-orange"
+                className={`w-20 border bg-pit-black px-2 py-1.5 text-right font-mono text-readout-bright outline-none focus:border-hazard-orange ${
+                  ratioError ? 'border-hazard-stripe' : 'border-metal-border'
+                }`}
               />
               <span className="text-readout-muted">:1</span>
             </div>
           </div>
+          {ratioError ? (
+            <p className="mt-1 font-mono text-[10px] text-hazard-orange">{ratioError}</p>
+          ) : null}
         </div>
 
         {/* LED Digital Readout for Calculated FDR */}

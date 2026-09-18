@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/useAuthStore';
 
 interface DrawerItem {
@@ -19,7 +19,9 @@ const BASE_DRAWERS: DrawerItem[] = [
  */
 export function ToolboxDrawerNavigation() {
   const user = useAuthStore((state) => state.user);
+  const location = useLocation();
   const isElevated = user?.role === 'admin' || user?.role === 'moderator';
+  const inspectingPublicSlug = location.pathname.startsWith('/s/');
 
   const drawers: DrawerItem[] = [
     ...BASE_DRAWERS,
@@ -38,14 +40,16 @@ export function ToolboxDrawerNavigation() {
           <li key={drawer.to} className="shrink-0">
             <NavLink
               to={drawer.to}
-              className={({ isActive }) =>
-                [
+              className={({ isActive }) => {
+                const drawerActive =
+                  isActive || (drawer.to === '/feed' && inspectingPublicSlug);
+                return [
                   'flex min-w-[9.5rem] items-center gap-2 border-t-2 border-l-2 px-3 py-2 font-display text-sm uppercase tracking-[0.18em] shadow-beveled-panel transition',
-                  isActive
+                  drawerActive
                     ? 'border-hazard-orange bg-pit-steel text-hazard-orange'
                     : 'border-pit-rubber bg-pit-black/60 text-readout-dim hover:border-metal-highlight hover:text-readout-bright',
-                ].join(' ')
-              }
+                ].join(' ');
+              }}
             >
               <span className="font-mono text-[10px] text-readout-muted">
                 {drawer.index}

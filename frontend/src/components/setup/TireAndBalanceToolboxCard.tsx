@@ -22,6 +22,8 @@ export function TireAndBalanceToolboxCard() {
   const rearBiasPct = weight.rearWeightBiasPercentage ?? 50;
 
   const weightError = validationErrors['settings.tiresAndWeight.weight.totalRtrWeightGrams'];
+  const frontCompoundError = validationErrors['settings.tiresAndWeight.front.compound'];
+  const rearCompoundError = validationErrors['settings.tiresAndWeight.rear.compound'];
 
   return (
     <article className="relative border-t-2 border-l-2 border-pit-rubber bg-pit-steel p-5 shadow-beveled-panel">
@@ -52,11 +54,17 @@ export function TireAndBalanceToolboxCard() {
               <label className="font-mono text-[10px] uppercase text-readout-muted">Compound</label>
               <input
                 type="text"
+                aria-label="Front tire compound"
                 value={frontTire.compound}
                 onChange={(e) => updateTires('front', { compound: e.target.value })}
                 placeholder="e.g. Predator / Sticky"
-                className="mt-1 w-full border border-metal-border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
+                className={`mt-1 w-full border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange ${
+                  frontCompoundError ? 'border-hazard-stripe' : 'border-metal-border'
+                }`}
               />
+              {frontCompoundError ? (
+                <p className="mt-1 font-mono text-[10px] text-hazard-orange">{frontCompoundError}</p>
+              ) : null}
             </div>
             <div>
               <label className="font-mono text-[10px] uppercase text-readout-muted">Insert Typology</label>
@@ -120,11 +128,17 @@ export function TireAndBalanceToolboxCard() {
               <label className="font-mono text-[10px] uppercase text-readout-muted">Compound</label>
               <input
                 type="text"
+                aria-label="Rear tire compound"
                 value={rearTire.compound}
                 onChange={(e) => updateTires('rear', { compound: e.target.value })}
                 placeholder="e.g. Predator / Sticky"
-                className="mt-1 w-full border border-metal-border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
+                className={`mt-1 w-full border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange ${
+                  rearCompoundError ? 'border-hazard-stripe' : 'border-metal-border'
+                }`}
               />
+              {rearCompoundError ? (
+                <p className="mt-1 font-mono text-[10px] text-hazard-orange">{rearCompoundError}</p>
+              ) : null}
             </div>
             <div>
               <label className="font-mono text-[10px] uppercase text-readout-muted">Insert Typology</label>

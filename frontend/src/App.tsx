@@ -6,13 +6,12 @@ import { useAuthStore } from './stores/useAuthStore';
 import { useGarageStore } from './stores/useGarageStore';
 import { CommunityFeedWorkbench } from './views/CommunityFeedWorkbench';
 import { GarageFleetView } from './views/GarageFleetView';
-import { PublicInspectionView } from './views/PublicInspectionView';
 import { SetupClipboardView } from './views/SetupClipboardView';
 import { StickersWorkbenchView } from './views/StickersWorkbenchView';
 import { AdminConsoleWorkbench } from './views/AdminConsoleWorkbench';
 
 /**
- * Purpose: register pit-mat workbench drawers and the unauthenticated chassis inspection route.
+ * Purpose: register pit-mat workbench drawers, including QR slug inspection over the community feed.
  */
 export function App() {
   const checkSession = useAuthStore((state) => state.checkSession);
@@ -38,15 +37,12 @@ export function App() {
   return (
     <>
       <Routes>
-        <Route
-          path="/s/:slug"
-          element={<PublicInspectionView onRequestAuth={openAuth} />}
-        />
         <Route element={<PitMatAppLayout onRequestAuth={openAuth} />}>
           <Route path="/" element={<Navigate to="/garage" replace />} />
           <Route path="/garage" element={<GarageFleetView onRequestAuth={openAuth} />} />
           <Route path="/clipboard" element={<SetupClipboardView onRequestAuth={openAuth} />} />
           <Route path="/feed" element={<CommunityFeedWorkbench onRequestAuth={openAuth} />} />
+          <Route path="/s/:slug" element={<CommunityFeedWorkbench onRequestAuth={openAuth} />} />
           <Route path="/stickers" element={<StickersWorkbenchView onRequestAuth={openAuth} />} />
           <Route path="/admin" element={<AdminConsoleWorkbench onRequestAuth={openAuth} />} />
           <Route path="*" element={<Navigate to="/garage" replace />} />

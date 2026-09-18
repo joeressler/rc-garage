@@ -5,11 +5,13 @@ import { ApiError } from '../api/http';
 import {
   apiCreateSetup,
   apiGetSetup,
+  apiListSetups,
   apiUpdateSetup,
   calculateCogBias,
   calculateFdr,
   CreateSetupSchema,
   defaultSetupSettings,
+  prepareSettingsForSave,
   type AxleTireSpecification,
   type CreateSetupDto,
   type SetupEntity,
@@ -82,6 +84,7 @@ export interface SetupState {
 
   // Lifecycle & Persistence
   initNewSetup: (vehicleId?: string, defaultTitle?: string) => void;
+  activateChassis: (vehicleId: string) => Promise<SetupEntity | null>;
   loadSetupById: (setupId: string) => Promise<void>;
   saveCurrentSetup: () => Promise<SetupEntity>;
   forkSetupIntoGarage: (
@@ -130,6 +133,22 @@ const initialFeedFilters: FeedFilters = {
   limit: 20,
 };
 
+// Drop in-flight sheet loads when the driver swaps chassis or starts a draft.
+let editorEpoch = 0;
+
+function resolveChassis(vehicleId?: string | null) {
+  const garage = useGarageStore.getState();
+  return garage.vehicles.find((vehicle) => vehicle.id === vehicleId) ?? garage.getActiveVehicle();
+}
+
+function draftTitleForChassis(vehicleId?: string | null, defaultTitle?: string): string {
+  if (defaultTitle) {
+    return defaultTitle;
+  }
+  const chassis = resolveChassis(vehicleId);
+  return chassis ? `${chassis.make} ${chassis.model} Spec` : 'Chassis Telemetry Spec';
+}
+
 /**
  * Purpose: manage live telemetry sheet state with instant FDR/CoG calculations, community feed, and fork actions.
  */
@@ -173,6 +192,13 @@ export const useSetupStore = create<SetupState>((set, get) => ({
     } else {
       delete nextErrors['settings.drivetrain.spurTeeth'];
       delete nextErrors['settings.drivetrain.pinionTeeth'];
+    }
+
+    if (internalRatio < 1 || internalRatio > 6) {
+      nextErrors['settings.drivetrain.transmissionInternalRatio'] =
+        'Internal ratio must be between 1.0 and 6.0';
+    } else {
+      delete nextErrors['settings.drivetrain.transmissionInternalRatio'];
     }
 
     set({
@@ -261,6 +287,28 @@ export const useSetupStore = create<SetupState>((set, get) => ({
       delete nextErrors[`settings.suspension.${axle}.toeAngleDeg`];
     }
 
+    if (spec.springRateDescription !== undefined) {
+      const springs = spec.springRateDescription.trim();
+      if (springs.length < 1) {
+        nextErrors[`settings.suspension.${axle}.springRateDescription`] =
+          'Spring rate is required';
+      } else if (spec.springRateDescription.length > 50) {
+        nextErrors[`settings.suspension.${axle}.springRateDescription`] =
+          'Spring rate must be 50 characters or fewer';
+      } else {
+        delete nextErrors[`settings.suspension.${axle}.springRateDescription`];
+      }
+    }
+
+    if (spec.rideHeightMm !== undefined) {
+      if (spec.rideHeightMm < 0 || spec.rideHeightMm > 120) {
+        nextErrors[`settings.suspension.${axle}.rideHeightMm`] =
+          'Ride height must be between 0 and 120mm';
+      } else {
+        delete nextErrors[`settings.suspension.${axle}.rideHeightMm`];
+      }
+    }
+
     set({
       isDirty: true,
       validationErrors: nextErrors,
@@ -281,9 +329,23 @@ export const useSetupStore = create<SetupState>((set, get) => ({
     axle: 'front' | 'rear',
     spec: Partial<AxleTireSpecification>,
   ) => {
-    const { activeSettings } = get();
+    const { activeSettings, validationErrors } = get();
+    const nextErrors = { ...validationErrors };
+    if (spec.compound !== undefined) {
+      if (spec.compound.trim().length < 1) {
+        nextErrors[`settings.tiresAndWeight.${axle}.compound`] =
+          'Tire compound is required';
+      } else if (spec.compound.length > 50) {
+        nextErrors[`settings.tiresAndWeight.${axle}.compound`] =
+          'Tire compound must be 50 characters or fewer';
+      } else {
+        delete nextErrors[`settings.tiresAndWeight.${axle}.compound`];
+      }
+    }
+
     set({
       isDirty: true,
+      validationErrors: nextErrors,
       activeSettings: {
         ...activeSettings,
         tiresAndWeight: {
@@ -341,19 +403,14 @@ export const useSetupStore = create<SetupState>((set, get) => ({
   },
 
   initNewSetup: (vehicleId?: string, defaultTitle?: string) => {
-    const activeGarageVehicle = useGarageStore.getState().getActiveVehicle();
-    const resolvedVehicleId = vehicleId ?? activeGarageVehicle?.id ?? null;
-    const resolvedTitle =
-      defaultTitle ??
-      (activeGarageVehicle
-        ? `${activeGarageVehicle.make} ${activeGarageVehicle.model} Spec`
-        : 'Chassis Telemetry Spec');
+    editorEpoch += 1;
+    const resolvedVehicleId = vehicleId ?? resolveChassis(vehicleId)?.id ?? null;
 
     set({
       activeSetup: null,
       activeSettings: defaultSetupSettings(),
       meta: {
-        title: resolvedTitle,
+        title: draftTitleForChassis(resolvedVehicleId, defaultTitle),
         description: '',
         isPublic: true,
         tags: [],
@@ -368,11 +425,56 @@ export const useSetupStore = create<SetupState>((set, get) => ({
     });
   },
 
+  activateChassis: async (vehicleId: string): Promise<SetupEntity | null> => {
+    const current = get();
+    if (
+      current.targetVehicleId === vehicleId &&
+      (current.activeSetup === null || current.activeSetup.vehicleId === vehicleId)
+    ) {
+      return current.activeSetup;
+    }
+
+    // Detach immediately so edits/saves cannot rewrite the previous chassis spec.
+    get().initNewSetup(vehicleId);
+    const epoch = editorEpoch;
+    const token = useAuthStore.getState().token;
+    if (!token) {
+      return null;
+    }
+
+    set({ isLoading: true, error: null });
+    try {
+      const sheets = await apiListSetups(token, vehicleId);
+      if (epoch !== editorEpoch) {
+        return get().activeSetup;
+      }
+
+      const latest = sheets[0];
+      if (!latest) {
+        set({ isLoading: false });
+        return null;
+      }
+
+      await get().loadSetupById(latest.id);
+      const loaded = get().activeSetup;
+      return loaded?.vehicleId === vehicleId ? loaded : null;
+    } catch (err: unknown) {
+      if (epoch === editorEpoch) {
+        set({ isLoading: false, error: errorMessage(err) });
+      }
+      return null;
+    }
+  },
+
   loadSetupById: async (setupId: string) => {
+    const epoch = ++editorEpoch;
     set({ isLoading: true, error: null, validationErrors: {} });
     try {
       const token = useAuthStore.getState().token;
       const setup = await apiGetSetup(setupId, token);
+      if (epoch !== editorEpoch) {
+        return;
+      }
       set({
         activeSetup: setup,
         activeSettings: setup.settings,
@@ -391,6 +493,9 @@ export const useSetupStore = create<SetupState>((set, get) => ({
         void get().loadParentForComparison(setup.forkedFromSetupId);
       }
     } catch (err: unknown) {
+      if (epoch !== editorEpoch) {
+        return;
+      }
       set({
         error: errorMessage(err),
         isLoading: false,
@@ -415,8 +520,8 @@ export const useSetupStore = create<SetupState>((set, get) => ({
       title: meta.title.trim(),
       description: meta.description.trim() ? meta.description.trim() : undefined,
       isPublic: meta.isPublic,
-      tags: meta.tags,
-      settings: activeSettings,
+      tags: Array.isArray(meta.tags) ? meta.tags : [],
+      settings: prepareSettingsForSave(activeSettings),
     };
 
     // Client-side Zod validation before submitting
@@ -436,20 +541,18 @@ export const useSetupStore = create<SetupState>((set, get) => ({
     set({ isSaving: true, error: null, validationErrors: {} });
     try {
       let saved: SetupEntity;
-      if (activeSetup?.id) {
-        // Update existing setup
+      const canUpdateExisting = !!activeSetup?.id && activeSetup.vehicleId === vehicleId;
+      if (canUpdateExisting && activeSetup) {
         const updatePayload: UpdateSetupDto = {
-          vehicleId: payload.vehicleId,
-          title: payload.title,
-          description: payload.description,
-          isPublic: payload.isPublic,
-          tags: payload.tags,
-          settings: payload.settings,
+          title: parsed.data.title,
+          description: parsed.data.description,
+          isPublic: parsed.data.isPublic,
+          tags: parsed.data.tags,
+          settings: parsed.data.settings,
         };
         saved = await apiUpdateSetup(token, activeSetup.id, updatePayload);
       } else {
-        // Create new setup
-        saved = await apiCreateSetup(token, payload);
+        saved = await apiCreateSetup(token, parsed.data);
       }
 
       set({
@@ -548,7 +651,8 @@ export const useSetupStore = create<SetupState>((set, get) => ({
 
   clearErrors: () => set({ error: null, validationErrors: {} }),
 
-  reset: () =>
+  reset: () => {
+    editorEpoch += 1;
     set({
       activeSetup: null,
       activeSettings: defaultSetupSettings(),
@@ -566,7 +670,8 @@ export const useSetupStore = create<SetupState>((set, get) => ({
       feedNextCursor: null,
       isFeedLoading: false,
       feedError: null,
-    }),
+    });
+  },
 
   // Community Feed Actions
   fetchFeed: async (reset = false) => {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { nanoid } from 'nanoid';
 import {
   CreateSetupDto,
@@ -87,18 +87,27 @@ export class SetupsService {
     });
   }
 
-  async list(userId: string, vehicleId: string): Promise<SetupSummary[]> {
-    await this.assertOwnedVehicle(userId, vehicleId);
+  async list(userId: string, vehicleId?: string): Promise<SetupSummary[]> {
+    if (vehicleId) {
+      await this.assertOwnedVehicle(userId, vehicleId);
+      const chassisResult = await this.database.query<SetupRow>(
+        `SELECT ${SETUP_COLUMNS}
+         FROM setups
+         WHERE vehicle_id = $1
+         ORDER BY created_at DESC`,
+        [vehicleId],
+      );
+      return chassisResult.rows.map((row) => this.toSummary(row));
+    }
 
-    const result = await this.database.query<SetupRow>(
+    const accountResult = await this.database.query<SetupRow>(
       `SELECT ${SETUP_COLUMNS}
        FROM setups
-       WHERE vehicle_id = $1
+       WHERE user_id = $1
        ORDER BY created_at DESC`,
-      [vehicleId],
+      [userId],
     );
-
-    return result.rows.map((row) => this.toSummary(row));
+    return accountResult.rows.map((row) => this.toSummary(row));
   }
 
   async findOne(
@@ -124,9 +133,11 @@ export class SetupsService {
     dto: UpdateSetupDto,
   ): Promise<SetupEntity> {
     const existing = await this.loadOwned(userId, setupId);
-    const nextVehicleId = dto.vehicleId ?? existing.vehicle_id;
-    if (nextVehicleId !== existing.vehicle_id) {
-      await this.assertOwnedVehicle(userId, nextVehicleId);
+    // Chassis assignment is immutable so editing one bay cannot restamp another chassis' sheet.
+    if (dto.vehicleId !== undefined && dto.vehicleId !== existing.vehicle_id) {
+      throw new BadRequestException(
+        'Setup sheets cannot be moved to a different chassis',
+      );
     }
 
     const nextSettings = dto.settings ?? existing.settings;
@@ -141,21 +152,19 @@ export class SetupsService {
 
     const result = await this.database.query<SetupRow>(
       `UPDATE setups
-       SET vehicle_id = $1,
-           title = $2,
-           description = $3,
-           is_public = $4,
-           tags = $5::text[],
-           settings = $6::jsonb,
-           calculated_fdr = $7,
-           front_bias_percentage = $8,
-           surface_type = $9,
-           location_tag = $10,
+       SET title = $1,
+           description = $2,
+           is_public = $3,
+           tags = $4::text[],
+           settings = $5::jsonb,
+           calculated_fdr = $6,
+           front_bias_percentage = $7,
+           surface_type = $8,
+           location_tag = $9,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $11 AND user_id = $12
+       WHERE id = $10 AND user_id = $11
        RETURNING ${SETUP_COLUMNS}`,
       [
-        nextVehicleId,
         nextTitle,
         nextDescription,
         nextIsPublic,

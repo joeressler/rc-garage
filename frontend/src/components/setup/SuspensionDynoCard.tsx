@@ -2,15 +2,29 @@ import { cstToApproxWt, wtToApproxCst } from '../../api/setups';
 import { FLUID_UNITS } from '../../api/setups-constants';
 import { useSetupStore } from '../../stores/useSetupStore';
 
+function cornerFieldErrors(
+  errors: Record<string, string>,
+  axle: 'front' | 'rear',
+) {
+  return {
+    viscosity: errors[`settings.suspension.${axle}.oilViscosityValue`],
+    springs: errors[`settings.suspension.${axle}.springRateDescription`],
+    rideHeight: errors[`settings.suspension.${axle}.rideHeightMm`],
+  };
+}
+
 /**
  * Purpose: side-by-side front and rear shock dyno inspection cards with viscosity readouts and alignment dials.
  */
 export function SuspensionDynoCard() {
   const suspension = useSetupStore((state) => state.activeSettings.suspension);
   const updateSuspensionCorner = useSetupStore((state) => state.updateSuspensionCorner);
+  const validationErrors = useSetupStore((state) => state.validationErrors);
 
   const front = suspension.front;
   const rear = suspension.rear;
+  const frontErrors = cornerFieldErrors(validationErrors, 'front');
+  const rearErrors = cornerFieldErrors(validationErrors, 'rear');
 
   // Dual viscosity display calculation
   const frontDualViscosity =
@@ -68,8 +82,13 @@ export function SuspensionDynoCard() {
                   const val = parseFloat(e.target.value);
                   if (!Number.isNaN(val)) updateSuspensionCorner('front', { oilViscosityValue: val });
                 }}
-                className="mt-1 w-full border border-metal-border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
+                className={`mt-1 w-full border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange ${
+                  frontErrors.viscosity ? 'border-hazard-stripe' : 'border-metal-border'
+                }`}
               />
+              {frontErrors.viscosity ? (
+                <p className="mt-1 font-mono text-[10px] text-hazard-orange">{frontErrors.viscosity}</p>
+              ) : null}
             </div>
             <div>
               <label className="font-mono text-[10px] uppercase text-readout-muted">Unit</label>
@@ -102,8 +121,13 @@ export function SuspensionDynoCard() {
                   updateSuspensionCorner('front', { springRateDescription: e.target.value })
                 }
                 placeholder="e.g. 1.4 lb/in"
-                className="mt-1 w-full border border-metal-border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
+                className={`mt-1 w-full border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange ${
+                  frontErrors.springs ? 'border-hazard-stripe' : 'border-metal-border'
+                }`}
               />
+              {frontErrors.springs ? (
+                <p className="mt-1 font-mono text-[10px] text-hazard-orange">{frontErrors.springs}</p>
+              ) : null}
             </div>
             <div>
               <label className="font-mono text-[10px] uppercase text-readout-muted">
@@ -118,8 +142,13 @@ export function SuspensionDynoCard() {
                   const val = parseFloat(e.target.value);
                   if (!Number.isNaN(val)) updateSuspensionCorner('front', { rideHeightMm: val });
                 }}
-                className="mt-1 w-full border border-metal-border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
+                className={`mt-1 w-full border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange ${
+                  frontErrors.rideHeight ? 'border-hazard-stripe' : 'border-metal-border'
+                }`}
               />
+              {frontErrors.rideHeight ? (
+                <p className="mt-1 font-mono text-[10px] text-hazard-orange">{frontErrors.rideHeight}</p>
+              ) : null}
             </div>
           </div>
 
@@ -202,8 +231,13 @@ export function SuspensionDynoCard() {
                   const val = parseFloat(e.target.value);
                   if (!Number.isNaN(val)) updateSuspensionCorner('rear', { oilViscosityValue: val });
                 }}
-                className="mt-1 w-full border border-metal-border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
+                className={`mt-1 w-full border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange ${
+                  rearErrors.viscosity ? 'border-hazard-stripe' : 'border-metal-border'
+                }`}
               />
+              {rearErrors.viscosity ? (
+                <p className="mt-1 font-mono text-[10px] text-hazard-orange">{rearErrors.viscosity}</p>
+              ) : null}
             </div>
             <div>
               <label className="font-mono text-[10px] uppercase text-readout-muted">Unit</label>
@@ -236,8 +270,13 @@ export function SuspensionDynoCard() {
                   updateSuspensionCorner('rear', { springRateDescription: e.target.value })
                 }
                 placeholder="e.g. 1.1 lb/in"
-                className="mt-1 w-full border border-metal-border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
+                className={`mt-1 w-full border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange ${
+                  rearErrors.springs ? 'border-hazard-stripe' : 'border-metal-border'
+                }`}
               />
+              {rearErrors.springs ? (
+                <p className="mt-1 font-mono text-[10px] text-hazard-orange">{rearErrors.springs}</p>
+              ) : null}
             </div>
             <div>
               <label className="font-mono text-[10px] uppercase text-readout-muted">
@@ -252,8 +291,13 @@ export function SuspensionDynoCard() {
                   const val = parseFloat(e.target.value);
                   if (!Number.isNaN(val)) updateSuspensionCorner('rear', { rideHeightMm: val });
                 }}
-                className="mt-1 w-full border border-metal-border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
+                className={`mt-1 w-full border bg-pit-black px-2 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange ${
+                  rearErrors.rideHeight ? 'border-hazard-stripe' : 'border-metal-border'
+                }`}
               />
+              {rearErrors.rideHeight ? (
+                <p className="mt-1 font-mono text-[10px] text-hazard-orange">{rearErrors.rideHeight}</p>
+              ) : null}
             </div>
           </div>
 

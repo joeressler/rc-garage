@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { apiGetSetup } from '../api/setups';
 import { ForkDiffInspectorModal } from '../components/diff/ForkDiffInspectorModal';
 import { QrPitStickerPrinterModal } from '../components/qr/QrPitStickerPrinterModal';
 import { ClipboardActionBar } from '../components/setup/ClipboardActionBar';
 import { ClipboardHeaderClamp } from '../components/setup/ClipboardHeaderClamp';
+import { ClipboardSetupSwitcher } from '../components/setup/ClipboardSetupSwitcher';
 import { DrivetrainToolboxCard } from '../components/setup/DrivetrainToolboxCard';
 import { SuspensionDynoCard } from '../components/setup/SuspensionDynoCard';
 import { TireAndBalanceToolboxCard } from '../components/setup/TireAndBalanceToolboxCard';
@@ -25,6 +27,8 @@ export function SetupClipboardView({ onRequestAuth }: SetupClipboardViewProps) {
   const setupIdParam = searchParams.get('setupId');
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isAuthLoading = useAuthStore((state) => state.isLoading);
+  const userId = useAuthStore((state) => state.user?.id);
   const vehicles = useGarageStore((state) => state.vehicles);
   const activeVehicleId = useGarageStore((state) => state.activeVehicleId);
 
@@ -35,62 +39,67 @@ export function SetupClipboardView({ onRequestAuth }: SetupClipboardViewProps) {
   const isLoading = useSetupStore((state) => state.isLoading);
   const initNewSetup = useSetupStore((state) => state.initNewSetup);
   const loadSetupById = useSetupStore((state) => state.loadSetupById);
-  const setTargetVehicleId = useSetupStore((state) => state.setTargetVehicleId);
 
   const [printQrOpen, setPrintQrOpen] = useState(false);
   const [diffInspectorOpen, setDiffInspectorOpen] = useState(false);
 
-  // Load setup if query param exists
+  // Load owned sheets only; foreign ids belong on the community inspect overlay.
   useEffect(() => {
-    if (setupIdParam) {
-      void loadSetupById(setupIdParam);
+    if (!setupIdParam || isAuthLoading) {
+      return;
     }
-  }, [setupIdParam, loadSetupById]);
+    if (!isAuthenticated) {
+      navigate(`/feed?inspect=${encodeURIComponent(setupIdParam)}`, { replace: true });
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const token = useAuthStore.getState().token;
+        const setup = await apiGetSetup(setupIdParam, token);
+        if (cancelled) {
+          return;
+        }
+        if (userId && setup.userId !== userId) {
+          navigate(`/feed?inspect=${encodeURIComponent(setup.id)}`, { replace: true });
+          return;
+        }
+        await loadSetupById(setupIdParam);
+      } catch {
+        if (!cancelled) {
+          await loadSetupById(setupIdParam);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    setupIdParam,
+    isAuthenticated,
+    isAuthLoading,
+    userId,
+    loadSetupById,
+    navigate,
+  ]);
 
   // Sync target vehicle with garage store if creating new
   useEffect(() => {
-    if (!setupIdParam && !activeSetup) {
-      if (activeVehicleId && (!targetVehicleId || targetVehicleId !== activeVehicleId)) {
-        initNewSetup(activeVehicleId);
-      }
+    if (setupIdParam || activeSetup || isLoading) {
+      return;
     }
-  }, [setupIdParam, activeSetup, activeVehicleId, targetVehicleId, initNewSetup]);
+    if (activeVehicleId && (!targetVehicleId || targetVehicleId !== activeVehicleId)) {
+      initNewSetup(activeVehicleId);
+    }
+  }, [setupIdParam, activeSetup, isLoading, activeVehicleId, targetVehicleId, initNewSetup]);
 
   const activeChassis = vehicles.find((v) => v.id === (targetVehicleId ?? activeSetup?.vehicleId));
 
   return (
     <section className="relative pb-12">
-      {/* Vehicle Selector bar if user has multiple chassis */}
-      {vehicles.length > 0 ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border border-metal-border bg-pit-grease px-4 py-2">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-readout-muted">
-              Active Chassis:
-            </span>
-            <select
-              value={targetVehicleId ?? activeVehicleId ?? ''}
-              onChange={(e) => {
-                const vid = e.target.value;
-                setTargetVehicleId(vid);
-              }}
-              className="border border-metal-border bg-pit-black px-2.5 py-1 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
-            >
-              {vehicles.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name} ({v.make} {v.model})
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="button"
-            onClick={() => initNewSetup(targetVehicleId ?? activeVehicleId ?? undefined)}
-            className="font-mono text-xs uppercase tracking-wider text-hazard-orange hover:underline"
-          >
-            + New Setup Sheet
-          </button>
-        </div>
-      ) : null}
+      {vehicles.length > 0 ? <ClipboardSetupSwitcher /> : null}
 
       {/* Empty Fleet Warning */}
       {isAuthenticated && vehicles.length === 0 ? (
