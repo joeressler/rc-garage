@@ -18,3 +18,13 @@ export function buildChassisInspectionUrl(
 ): string {
   return `${normalizeAppBaseUrl(baseUrl)}/s/${slug}`;
 }
+
+/**
+ * Purpose: absolute QR PNG URL used as og:image so scrapers hotlink the chassis sticker.
+ */
+export function buildChassisQrPngUrl(
+  baseUrl: string | undefined,
+  setupId: string,
+): string {
+  return `${normalizeAppBaseUrl(baseUrl)}/api/garage/setups/${setupId}/qr?format=png&size=512`;
+}

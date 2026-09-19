@@ -5,11 +5,25 @@ import {
   PublicInspectionSheet,
   QrImageResult,
   QrQuery,
+  ShareHtmlDocument,
+  SitemapUrlEntry,
 } from '../../contracts/qr.contract';
 import { SetupSettings } from '../../contracts/setup.contract';
 import { parseChassisElectronics } from '../../contracts/vehicle.contract';
 import { DatabaseService } from '../../database/database.service';
-import { buildChassisInspectionUrl } from './utils/qr-url.util';
+import {
+  buildShareHtml,
+  buildShareNotFoundHtml,
+  buildSitemapXml,
+  formatSitemapLastmod,
+  SITEMAP_SETUP_URL_LIMIT,
+  SITEMAP_STATIC_PATHS,
+} from './qr-html.util';
+import {
+  buildChassisInspectionUrl,
+  buildChassisQrPngUrl,
+  normalizeAppBaseUrl,
+} from './utils/qr-url.util';
 
 interface QrSetupRow {
   qr_slug: string;
@@ -29,6 +43,22 @@ interface PublicInspectionRow {
   scale: string;
   vehicle_class: string;
   electronics?: unknown;
+}
+
+interface SharePreviewRow {
+  id: string;
+  title: string;
+  qr_slug: string;
+  calculated_fdr: string | number;
+  front_bias_percentage: string | number;
+  callsign: string;
+  make: string;
+  model: string;
+}
+
+interface SitemapSetupRow {
+  qr_slug: string;
+  updated_at: Date | string;
 }
 
 const QR_ECC_LEVEL = 'H' as const;
@@ -147,6 +177,75 @@ export class QrService {
       },
       verified: true,
     };
+  }
+
+  /**
+   * Purpose: return crawler HTML instead of throwing so 404 stays text/html, not the JSON envelope.
+   */
+  async buildShareDocument(slug: string): Promise<ShareHtmlDocument> {
+    const result = await this.database.query<SharePreviewRow>(
+      `SELECT
+         s.id,
+         s.title,
+         s.qr_slug,
+         s.calculated_fdr,
+         s.front_bias_percentage,
+         u.callsign,
+         v.make,
+         v.model
+       FROM setups s
+       JOIN vehicles v ON v.id = s.vehicle_id
+       JOIN users u ON u.id = s.user_id
+       WHERE s.qr_slug = $1
+         AND s.is_public = TRUE
+         AND s.is_hidden = FALSE`,
+      [slug],
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      return { statusCode: 404, html: buildShareNotFoundHtml() };
+    }
+
+    const origin = this.config.get<string>('APP_BASE_URL');
+    return {
+      statusCode: 200,
+      html: buildShareHtml({
+        setupId: row.id,
+        title: row.title,
+        callsign: row.callsign,
+        make: row.make,
+        model: row.model,
+        calculatedFdr: Number(row.calculated_fdr),
+        frontBiasPercentage: Number(row.front_bias_percentage),
+        canonicalUrl: buildChassisInspectionUrl(origin, row.qr_slug),
+        ogImageUrl: buildChassisQrPngUrl(origin, row.id),
+      }),
+    };
+  }
+
+  async buildSitemapXmlDocument(): Promise<string> {
+    const origin = normalizeAppBaseUrl(this.config.get<string>('APP_BASE_URL'));
+    const staticUrls: SitemapUrlEntry[] = SITEMAP_STATIC_PATHS.map((path) => ({
+      loc: path === '/' ? `${origin}/` : `${origin}${path}`,
+    }));
+
+    const result = await this.database.query<SitemapSetupRow>(
+      `SELECT qr_slug, updated_at
+         FROM setups
+        WHERE is_public = TRUE
+          AND is_hidden = FALSE
+        ORDER BY updated_at DESC
+        LIMIT $1`,
+      [SITEMAP_SETUP_URL_LIMIT],
+    );
+
+    const setupUrls: SitemapUrlEntry[] = result.rows.map((row) => ({
+      loc: buildChassisInspectionUrl(origin, row.qr_slug),
+      lastmod: formatSitemapLastmod(row.updated_at),
+    }));
+
+    return buildSitemapXml([...staticUrls, ...setupUrls]);
   }
 
   buildTargetUrl(slug: string): string {

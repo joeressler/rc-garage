@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Allow: /s/
+Allow: /u/
+Allow: /feed
+Allow: /legal/
+Disallow: /admin
+Disallow: /clipboard
+Disallow: /garage
+Sitemap: /sitemap.xml

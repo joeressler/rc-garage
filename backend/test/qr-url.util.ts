@@ -3,6 +3,7 @@
  */
 import {
   buildChassisInspectionUrl,
+  buildChassisQrPngUrl,
   normalizeAppBaseUrl,
 } from '../src/modules/qr/utils/qr-url.util';
 
@@ -28,6 +29,14 @@ function main(): void {
     buildChassisInspectionUrl('https://rc-garage.community/', 'v9k2pq1x8m') ===
       'https://rc-garage.community/s/v9k2pq1x8m',
     'sticker payload must be origin plus /s/:slug',
+  );
+  assert(
+    buildChassisQrPngUrl(
+      'https://rc-garage.community/',
+      'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    ) ===
+      'https://rc-garage.community/api/garage/setups/cccccccc-cccc-4ccc-8ccc-cccccccccccc/qr?format=png&size=512',
+    'og:image URL must be the absolute chassis QR PNG route',
   );
   console.log('qr url util: all acceptance checks passed');
 }

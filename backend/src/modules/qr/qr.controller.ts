@@ -1,4 +1,5 @@
-import { Controller, Get, Param, Query, StreamableFile } from '@nestjs/common';
+import { Controller, Get, Param, Query, Res, StreamableFile } from '@nestjs/common';
+import { Response } from 'express';
 import {
   PublicInspectionSheet,
   QrQuery,
@@ -10,7 +11,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { QrService } from './qr.service';
 
 /**
- * Purpose: expose unauthenticated chassis QR downloads and public slug resolution.
+ * Purpose: expose unauthenticated chassis QR downloads, public slug resolution, and crawler share HTML.
  */
 @Controller()
 export class QrController {
@@ -33,5 +34,25 @@ export class QrController {
     @Param('slug', new ZodValidationPipe(QrSlugParamSchema)) slug: string,
   ): Promise<PublicInspectionSheet> {
     return this.qrService.resolveBySlug(slug);
+  }
+
+  @Get('share/:slug')
+  async share(
+    @Param('slug', new ZodValidationPipe(QrSlugParamSchema)) slug: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const document = await this.qrService.buildShareDocument(slug);
+    res.status(document.statusCode);
+    return new StreamableFile(Buffer.from(document.html, 'utf8'), {
+      type: 'text/html; charset=utf-8',
+    });
+  }
+
+  @Get('sitemap.xml')
+  async sitemap(): Promise<StreamableFile> {
+    const xml = await this.qrService.buildSitemapXmlDocument();
+    return new StreamableFile(Buffer.from(xml, 'utf8'), {
+      type: 'application/xml; charset=utf-8',
+    });
   }
 }

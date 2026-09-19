@@ -132,6 +132,7 @@ describe('SetupInspectOverlay', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    document.title = 'RC Garage — Pit-Mat Workbench';
   });
 
   it('loads a public sheet by id without using clipboard editor state', async () => {
@@ -222,5 +223,37 @@ describe('SetupInspectOverlay', () => {
     expect(await screen.findByText('Chassis tag not on the board')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Back to Community Feed/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('sets the document title to the sheet title while the overlay is open', async () => {
+    document.title = 'RC Garage — Pit-Mat Workbench';
+    const overlay = (
+      <SetupInspectOverlay
+        open
+        setupId={SETUP.id}
+        authorCallsign="TrailBoss"
+        onClose={vi.fn()}
+        onRequestFork={vi.fn()}
+        onRequestAuth={vi.fn()}
+      />
+    );
+
+    const { rerender } = renderOverlay(overlay);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Element Enduro Sendero HD' }),
+    ).toBeInTheDocument();
+    expect(document.title).toBe('Moab Slickrock Spec — RC Garage');
+
+    rerender(
+      <SetupInspectOverlay
+        open={false}
+        setupId={SETUP.id}
+        onClose={vi.fn()}
+        onRequestFork={vi.fn()}
+        onRequestAuth={vi.fn()}
+      />,
+    );
+    expect(document.title).toBe('RC Garage — Pit-Mat Workbench');
   });
 });

@@ -72,3 +72,26 @@ export interface QrImageResult {
   contentType: 'image/svg+xml' | 'image/png';
   format: QrFormat;
 }
+
+/** Purpose: fields interpolated into crawler-visible share HTML (Open Graph). */
+export interface ShareHtmlFields {
+  setupId: string;
+  title: string;
+  callsign: string;
+  make: string;
+  model: string;
+  calculatedFdr: number;
+  frontBiasPercentage: number;
+  canonicalUrl: string;
+  ogImageUrl: string;
+}
+
+export interface ShareHtmlDocument {
+  statusCode: 200 | 404;
+  html: string;
+}
+
+export interface SitemapUrlEntry {
+  loc: string;
+  lastmod?: string;
+}

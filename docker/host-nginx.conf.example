@@ -67,6 +67,29 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # robots.txt lives in the SPA dist; do not use the compose container html root.
+    location = /robots.txt {
+        proxy_pass http://127.0.0.1:3742;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /sitemap.xml {
+        proxy_pass http://127.0.0.1:5742/api/garage/sitemap.xml;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Always proxy 10-char pit-inspection slugs to Nest share HTML (OG/Twitter).
+    # nginx cannot cheaply branch on crawler User-Agent without a map, so Nest
+    # HTML carries og:* for scrapers plus an inline JS replace to /feed?inspect=.
+    location ~ ^/s/([A-Za-z0-9_-]{10})$ {
+        proxy_pass http://127.0.0.1:5742/api/garage/share/$1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Accept $http_accept;
+    }
+
     # Static Frontend SPA Reverse Proxy (non-standard 3742 avoids host collisions)
     location / {
         proxy_pass http://127.0.0.1:3742;

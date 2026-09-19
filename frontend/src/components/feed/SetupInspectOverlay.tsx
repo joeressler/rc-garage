@@ -102,6 +102,17 @@ export function SetupInspectOverlay({
     };
   }, [open, setupId, slug, token]);
 
+  useEffect(() => {
+    if (!open || !setup) {
+      return;
+    }
+    const previousTitle = document.title;
+    document.title = `${setup.title} — RC Garage`;
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [open, setup]);
+
   if (!open) {
     return null;
   }
