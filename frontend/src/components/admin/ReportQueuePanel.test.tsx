@@ -43,6 +43,42 @@ describe('ReportQueuePanel', () => {
       status: 'actioned',
       reason: 'Hide spam sheet',
       hideSetup: true,
+      hideComment: undefined,
+      suspendUser: false,
+    });
+  });
+
+  it('actions a comment report with hideComment', async () => {
+    const commentReport: AdminReportSummary = {
+      ...OPEN_REPORT,
+      id: 'report-2',
+      targetType: 'comment',
+      targetId: 'comment-1',
+      targetLabel: 'Report this note',
+    };
+    const onResolve = vi.fn().mockResolvedValue(commentReport);
+    render(
+      <ReportQueuePanel
+        reports={[commentReport]}
+        hasMore={false}
+        isLoading={false}
+        isActionLoading={false}
+        actionError={null}
+        onLoadMore={vi.fn()}
+        onResolve={onResolve}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/resolve reason/i), {
+      target: { value: 'Hide abusive pit note' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^action$/i }));
+
+    expect(onResolve).toHaveBeenCalledWith('report-2', {
+      status: 'actioned',
+      reason: 'Hide abusive pit note',
+      hideSetup: undefined,
+      hideComment: true,
       suspendUser: false,
     });
   });

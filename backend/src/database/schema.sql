@@ -109,13 +109,32 @@ CREATE TABLE setup_likes (
 CREATE INDEX idx_setup_likes_setup_id ON setup_likes(setup_id);
 
 -- -----------------------------------------------------------------------------
+-- Setup Comments (flat Pit Notes on public sheets)
+-- -----------------------------------------------------------------------------
+CREATE TABLE setup_comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    setup_id UUID NOT NULL REFERENCES setups(id) ON DELETE CASCADE,
+    author_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body VARCHAR(2000) NOT NULL,
+    is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+    hidden_at TIMESTAMPTZ,
+    hidden_reason VARCHAR(500),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE INDEX idx_setup_comments_setup_created
+    ON setup_comments (setup_id, created_at ASC)
+    WHERE is_hidden = FALSE;
+
+-- -----------------------------------------------------------------------------
 -- Moderation Audit Log (Immutable Operator Actions)
 -- -----------------------------------------------------------------------------
 CREATE TABLE moderation_audit_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     actor_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     action VARCHAR(40) NOT NULL,
-    target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('user', 'setup')),
+    target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('user', 'setup', 'comment')),
     target_id UUID NOT NULL,
     reason VARCHAR(500),
     metadata JSONB NOT NULL DEFAULT '{}'::JSONB,

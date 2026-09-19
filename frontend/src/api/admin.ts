@@ -70,7 +70,7 @@ export interface ModerationAuditLogEntry {
   actorCallsign: string;
   actorRole: UserRole;
   action: string;
-  targetType: 'user' | 'setup';
+  targetType: 'user' | 'setup' | 'comment';
   targetId: string;
   reason: string | null;
   metadata: Record<string, unknown>;
@@ -289,6 +289,7 @@ export function apiResolveAdminReport(
     status: 'actioned' | 'dismissed';
     reason: string;
     hideSetup?: boolean;
+    hideComment?: boolean;
     suspendUser?: boolean;
   },
   token: string,

@@ -138,6 +138,12 @@ function stubCommunityFetch() {
         return jsonResponse(envelope(INSPECTION));
       }
 
+      if (url.includes(`/api/garage/setups/${FEED_ITEM.id}/comments`)) {
+        return jsonResponse(
+          envelope({ items: [], nextCursor: null, hasMore: false }),
+        );
+      }
+
       if (url.includes(`/api/garage/setups/${FEED_ITEM.id}`)) {
         return jsonResponse(envelope(FEED_SETUP));
       }

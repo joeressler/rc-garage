@@ -27,6 +27,7 @@ import { CopyPublicLinkButton } from './CopyPublicLinkButton';
 import { DriverAvatar } from './DriverAvatar';
 import type { ForkToGarageSource } from './ForkToGarageModal';
 import { ReportSetupModal, type ReportTarget } from './ReportSetupModal';
+import { SetupCommentsPanel } from './SetupCommentsPanel';
 
 interface SetupInspectOverlayProps {
   open: boolean;
@@ -196,6 +197,14 @@ export function SetupInspectOverlay({
                 label: displayCallsign ? `@${displayCallsign}` : 'Driver',
               })
             }
+            onReportComment={(target) =>
+              requestReport({
+                targetType: 'comment',
+                targetId: target.targetId,
+                label: target.label,
+              })
+            }
+            onRequestAuth={onRequestAuth}
           />
         ) : null}
       </div>
@@ -251,6 +260,8 @@ function InspectedSheet({
   onFork,
   onReportSheet,
   onReportDriver,
+  onReportComment,
+  onRequestAuth,
 }: {
   setup: SetupEntity;
   vehicle: PublicInspectionVehicle | null;
@@ -261,6 +272,8 @@ function InspectedSheet({
   onFork: () => void;
   onReportSheet: () => void;
   onReportDriver: () => void;
+  onReportComment: (target: { targetId: string; label: string }) => void;
+  onRequestAuth: () => void;
 }) {
   const classLabel = vehicle ? VEHICLE_CLASS_LABELS[vehicle.vehicleClass] : null;
   const settings = setup.settings;
@@ -417,6 +430,12 @@ function InspectedSheet({
           </div>
         ) : null}
       </div>
+
+      <SetupCommentsPanel
+        setupId={setup.id}
+        onRequestAuth={onRequestAuth}
+        onReportComment={onReportComment}
+      />
 
       <div className="flex flex-col gap-3 border-t border-metal-border pt-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">

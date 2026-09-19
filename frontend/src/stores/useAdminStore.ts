@@ -67,6 +67,7 @@ export interface AdminStoreState {
       status: 'actioned' | 'dismissed';
       reason: string;
       hideSetup?: boolean;
+      hideComment?: boolean;
       suspendUser?: boolean;
     },
   ) => Promise<AdminReportSummary>;

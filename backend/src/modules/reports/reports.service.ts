@@ -13,7 +13,7 @@ import {
 import { DatabaseService } from '../../database/database.service';
 
 /**
- * Purpose: accept driver reports on public setup sheets and other drivers without letting the last admin be targeted.
+ * Purpose: accept driver reports on public setup sheets, other drivers, and public Pit Notes without letting the last admin be targeted.
  */
 @Injectable()
 export class ReportsService {
@@ -40,6 +40,22 @@ export class ReportsService {
         throw new NotFoundException('Setup not found');
       }
       if (setup.user_id === reporter.id) {
+        throw new BadRequestException('Cannot report yourself');
+      }
+    } else if (dto.targetType === 'comment') {
+      const commentRes = await this.database.query<{
+        id: string;
+        author_user_id: string;
+        is_hidden: boolean;
+      }>(
+        'SELECT id, author_user_id, is_hidden FROM setup_comments WHERE id = $1',
+        [dto.targetId],
+      );
+      const comment = commentRes.rows[0];
+      if (!comment || comment.is_hidden) {
+        throw new NotFoundException('Comment not found');
+      }
+      if (comment.author_user_id === reporter.id) {
         throw new BadRequestException('Cannot report yourself');
       }
     } else {

@@ -13,6 +13,7 @@ import { Request } from 'express';
 import {
   AdminAuditLogQueryDto,
   AdminAuditLogQuerySchema,
+  AdminCommentSummary,
   AdminDeleteSetupDto,
   AdminDeleteSetupSchema,
   AdminOverview,
@@ -116,6 +117,17 @@ export class AdminController {
     dto: ModerateSetupVisibilityDto,
   ): Promise<AdminSetupSummary> {
     return this.adminService.moderateSetupVisibility(req.user, setupId, dto);
+  }
+
+  @Patch('comments/:id/visibility')
+  @Roles('admin', 'moderator')
+  moderateCommentVisibility(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') commentId: string,
+    @Body(new ZodValidationPipe(ModerateSetupVisibilitySchema))
+    dto: ModerateSetupVisibilityDto,
+  ): Promise<AdminCommentSummary> {
+    return this.adminService.moderateCommentVisibility(req.user, commentId, dto);
   }
 
   @Delete('setups/:id')

@@ -14,6 +14,7 @@ interface ReportQueuePanelProps {
       status: 'actioned' | 'dismissed';
       reason: string;
       hideSetup?: boolean;
+      hideComment?: boolean;
       suspendUser?: boolean;
     },
   ) => Promise<unknown>;
@@ -39,6 +40,7 @@ export function ReportQueuePanel({
 }: ReportQueuePanelProps) {
   const [reason, setReason] = useState('');
   const [hideSetup, setHideSetup] = useState(true);
+  const [hideComment, setHideComment] = useState(true);
   const [suspendUser, setSuspendUser] = useState(false);
 
   const handleResolve = async (
@@ -53,6 +55,8 @@ export function ReportQueuePanel({
       status,
       reason: trimmed,
       hideSetup: status === 'actioned' && report.targetType === 'setup' ? hideSetup : undefined,
+      hideComment:
+        status === 'actioned' && report.targetType === 'comment' ? hideComment : undefined,
       suspendUser: status === 'actioned' ? suspendUser : undefined,
     });
     setReason('');
@@ -84,6 +88,14 @@ export function ReportQueuePanel({
             onChange={(event) => setHideSetup(event.target.checked)}
           />
           Hide setup
+        </label>
+        <label className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-readout-dim">
+          <input
+            type="checkbox"
+            checked={hideComment}
+            onChange={(event) => setHideComment(event.target.checked)}
+          />
+          Hide comment
         </label>
         <label className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-readout-dim">
           <input

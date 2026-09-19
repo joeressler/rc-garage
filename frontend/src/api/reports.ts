@@ -7,7 +7,7 @@ export type ReportReasonCode =
   | 'malware_link'
   | 'other';
 
-export type ReportTargetType = 'setup' | 'user';
+export type ReportTargetType = 'setup' | 'user' | 'comment';
 
 export interface CreateReportPayload {
   targetType: ReportTargetType;

@@ -7,6 +7,7 @@ import { AppThrottlerGuard } from './common/guards/app-throttler.guard';
 import { DatabaseModule } from './database/database.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CommentsModule } from './modules/comments/comments.module';
 import { FeedModule } from './modules/feed/feed.module';
 import { ProfilesModule } from './modules/profiles/profiles.module';
 import { QrModule } from './modules/qr/qr.module';
@@ -32,6 +33,7 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
     AuthModule,
     VehiclesModule,
     SetupsModule,
+    CommentsModule,
     QrModule,
     FeedModule,
     ProfilesModule,

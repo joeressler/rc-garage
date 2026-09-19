@@ -10,7 +10,7 @@ export const ReportReasonCodeSchema = z.enum([
 
 export const CreateReportSchema = z
   .object({
-    targetType: z.enum(['setup', 'user']),
+    targetType: z.enum(['setup', 'user', 'comment']),
     targetId: z.string().uuid(),
     reasonCode: ReportReasonCodeSchema,
     details: z.string().max(500).optional(),

@@ -109,6 +109,12 @@ function stubInspectFetch() {
         return jsonResponse(envelope(INSPECTION));
       }
 
+      if (url.includes(`/api/garage/setups/${SETUP.id}/comments`)) {
+        return jsonResponse(
+          envelope({ items: [], nextCursor: null, hasMore: false }),
+        );
+      }
+
       if (url.includes(`/api/garage/setups/${SETUP.id}`)) {
         return jsonResponse(envelope(SETUP));
       }
@@ -159,6 +165,9 @@ describe('SetupInspectOverlay', () => {
     expect(screen.getByText(/95g brass/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Back to Community Feed/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Save Telemetry Sheet/i })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Pit Notes' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sign in to post a pit note/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Post note/i })).not.toBeInTheDocument();
   });
 
   it('renders named electronics as shop links when a product URL is set', async () => {

@@ -92,6 +92,7 @@ export const ResolveReportSchema = z.object({
   status: z.enum(['actioned', 'dismissed']),
   reason: z.string().min(3).max(500),
   hideSetup: z.boolean().optional(),
+  hideComment: z.boolean().optional(),
   suspendUser: z.boolean().optional(),
 });
 
@@ -158,13 +159,22 @@ export interface PaginatedAdminSetups {
   hasMore: boolean;
 }
 
+export interface AdminCommentSummary {
+  id: string;
+  setupId: string;
+  isHidden: boolean;
+  hiddenAt: string | null;
+  hiddenReason: string | null;
+  createdAt: string;
+}
+
 export interface ModerationAuditLogEntry {
   id: string;
   actorUserId: string | null;
   actorCallsign: string;
   actorRole: UserRole;
   action: string;
-  targetType: 'user' | 'setup';
+  targetType: 'user' | 'setup' | 'comment';
   targetId: string;
   reason: string | null;
   metadata: Record<string, unknown>;

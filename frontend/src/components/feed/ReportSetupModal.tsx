@@ -101,7 +101,7 @@ export function ReportSetupModal({ open, target, onClose }: ReportSetupModalProp
             id="report-modal-title"
             className="font-display text-lg font-bold uppercase tracking-wider text-readout-bright"
           >
-            {target.targetType === 'user' ? 'Report Driver' : 'Report Setup Sheet'}
+            {reportModalTitle(target.targetType)}
           </h2>
           <button
             type="button"
@@ -195,4 +195,14 @@ export function ReportSetupModal({ open, target, onClose }: ReportSetupModalProp
       </div>
     </div>
   );
+}
+
+function reportModalTitle(targetType: ReportTargetType): string {
+  if (targetType === 'user') {
+    return 'Report Driver';
+  }
+  if (targetType === 'comment') {
+    return 'Report Pit Note';
+  }
+  return 'Report Setup Sheet';
 }

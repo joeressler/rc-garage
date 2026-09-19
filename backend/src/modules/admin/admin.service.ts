@@ -8,6 +8,7 @@ import {
 import { PoolClient } from 'pg';
 import {
   AdminAuditLogQueryDto,
+  AdminCommentSummary,
   AdminDeleteSetupDto,
   AdminOverview,
   AdminReportQueryDto,
@@ -76,12 +77,28 @@ interface AuditDbRow {
   actor_callsign: string | null;
   actor_role: UserRole | null;
   action: string;
-  target_type: 'user' | 'setup';
+  target_type: 'user' | 'setup' | 'comment';
   target_id: string;
   reason: string | null;
   metadata: Record<string, unknown>;
   created_at: Date | string;
 }
+
+interface CommentDbRow {
+  id: string;
+  setup_id: string;
+  is_hidden: boolean;
+  hidden_at: Date | string | null;
+  hidden_reason: string | null;
+  created_at: Date | string;
+}
+
+const REPORT_TARGET_LABEL_SQL = `CASE
+           WHEN r.target_type = 'setup' THEN COALESCE(s.title, r.target_id::text)
+           WHEN r.target_type = 'user' THEN COALESCE(target_user.callsign, r.target_id::text)
+           WHEN r.target_type = 'comment' THEN COALESCE(LEFT(c.body, 80), 'deleted comment')
+           ELSE r.target_id::text
+         END`;
 
 interface ReportDbRow {
   id: string;
@@ -559,6 +576,69 @@ export class AdminService {
     }
   }
 
+  async moderateCommentVisibility(
+    actor: AuthenticatedUser,
+    commentId: string,
+    dto: ModerateSetupVisibilityDto,
+  ): Promise<AdminCommentSummary> {
+    const client = await this.database.getClient();
+    try {
+      await client.query('BEGIN');
+
+      if (dto.hide) {
+        await this.hideCommentOnClient(
+          client,
+          actor,
+          commentId,
+          dto.reason ?? null,
+        );
+      } else {
+        const commentRes = await client.query<{ id: string }>(
+          'SELECT id FROM setup_comments WHERE id = $1 FOR UPDATE',
+          [commentId],
+        );
+        if (!commentRes.rows[0]) {
+          throw new NotFoundException('Comment not found');
+        }
+
+        await client.query(
+          `UPDATE setup_comments
+           SET is_hidden = FALSE,
+               hidden_at = NULL,
+               hidden_reason = NULL,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [commentId],
+        );
+
+        await client.query(
+          `INSERT INTO moderation_audit_log (actor_user_id, action, target_type, target_id, reason, metadata)
+           VALUES ($1, 'comment.unhide', 'comment', $2, $3, $4)`,
+          [actor.id, commentId, dto.reason ?? null, JSON.stringify({})],
+        );
+      }
+
+      const updatedRes = await client.query<CommentDbRow>(
+        `SELECT id, setup_id, is_hidden, hidden_at, hidden_reason, created_at
+         FROM setup_comments
+         WHERE id = $1`,
+        [commentId],
+      );
+      const updated = updatedRes.rows[0];
+      if (!updated) {
+        throw new NotFoundException('Comment not found');
+      }
+
+      await client.query('COMMIT');
+      return this.toCommentSummary(updated);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   async deleteSetup(
     actor: AuthenticatedUser,
     setupId: string,
@@ -637,11 +717,7 @@ export class AdminService {
          reporter.callsign AS reporter_callsign,
          r.target_type,
          r.target_id,
-         CASE
-           WHEN r.target_type = 'setup' THEN COALESCE(s.title, r.target_id::text)
-           WHEN r.target_type = 'user' THEN COALESCE(target_user.callsign, r.target_id::text)
-           ELSE r.target_id::text
-         END AS target_label,
+         ${REPORT_TARGET_LABEL_SQL} AS target_label,
          r.reason_code,
          r.details,
          r.status,
@@ -652,6 +728,7 @@ export class AdminService {
        JOIN users reporter ON reporter.id = r.reporter_user_id
        LEFT JOIN setups s ON r.target_type = 'setup' AND s.id = r.target_id
        LEFT JOIN users target_user ON r.target_type = 'user' AND target_user.id = r.target_id
+       LEFT JOIN setup_comments c ON r.target_type = 'comment' AND c.id = r.target_id
        WHERE ${where.join(' AND ')}
        ORDER BY r.created_at DESC, r.id DESC
        LIMIT $${params.length}`,
@@ -697,9 +774,6 @@ export class AdminService {
       if (report.status !== 'open') {
         throw new ConflictException('Report is already resolved');
       }
-      if (report.target_type === 'comment') {
-        throw new BadRequestException('Comment reports are not available yet');
-      }
 
       const applyActions = dto.status === 'actioned';
       if (applyActions && dto.hideSetup) {
@@ -717,6 +791,22 @@ export class AdminService {
         );
       }
 
+      if (applyActions && dto.hideComment) {
+        if (report.target_type !== 'comment') {
+          throw new BadRequestException(
+            'hideComment is only valid for comment reports',
+          );
+        }
+        await this.hideCommentOnClient(
+          client,
+          actor,
+          report.target_id,
+          dto.reason,
+          { reportId: report.id },
+          true,
+        );
+      }
+
       if (applyActions && dto.suspendUser) {
         let userId = report.target_id;
         if (report.target_type === 'setup') {
@@ -727,6 +817,16 @@ export class AdminService {
           const authorId = setupRes.rows[0]?.user_id;
           if (!authorId) {
             throw new NotFoundException('Setup not found');
+          }
+          userId = authorId;
+        } else if (report.target_type === 'comment') {
+          const commentRes = await client.query<{ author_user_id: string }>(
+            'SELECT author_user_id FROM setup_comments WHERE id = $1',
+            [report.target_id],
+          );
+          const authorId = commentRes.rows[0]?.author_user_id;
+          if (!authorId) {
+            throw new NotFoundException('Comment not found');
           }
           userId = authorId;
         }
@@ -756,6 +856,7 @@ export class AdminService {
             reportId: report.id,
             status: dto.status,
             hideSetup: Boolean(dto.hideSetup),
+            hideComment: Boolean(dto.hideComment),
             suspendUser: Boolean(dto.suspendUser),
           }),
         ],
@@ -768,11 +869,7 @@ export class AdminService {
            reporter.callsign AS reporter_callsign,
            r.target_type,
            r.target_id,
-           CASE
-             WHEN r.target_type = 'setup' THEN COALESCE(s.title, r.target_id::text)
-             WHEN r.target_type = 'user' THEN COALESCE(target_user.callsign, r.target_id::text)
-             ELSE r.target_id::text
-           END AS target_label,
+           ${REPORT_TARGET_LABEL_SQL} AS target_label,
            r.reason_code,
            r.details,
            r.status,
@@ -783,6 +880,7 @@ export class AdminService {
          JOIN users reporter ON reporter.id = r.reporter_user_id
          LEFT JOIN setups s ON r.target_type = 'setup' AND s.id = r.target_id
          LEFT JOIN users target_user ON r.target_type = 'user' AND target_user.id = r.target_id
+         LEFT JOIN setup_comments c ON r.target_type = 'comment' AND c.id = r.target_id
          WHERE r.id = $1`,
         [reportId],
       );
@@ -890,6 +988,56 @@ export class AdminService {
         setupId,
         reason,
         JSON.stringify({ setupTitle: setup.title, ...extraMetadata }),
+      ],
+    );
+  }
+
+  private async hideCommentOnClient(
+    client: PoolClient,
+    actor: AuthenticatedUser,
+    commentId: string,
+    reason: string | null,
+    extraMetadata: Record<string, unknown> = {},
+    missingOk = false,
+  ): Promise<void> {
+    const commentRes = await client.query<{
+      id: string;
+      setup_id: string;
+      body: string;
+    }>(
+      'SELECT id, setup_id, body FROM setup_comments WHERE id = $1 FOR UPDATE',
+      [commentId],
+    );
+    const comment = commentRes.rows[0];
+    if (!comment) {
+      if (missingOk) {
+        return;
+      }
+      throw new NotFoundException('Comment not found');
+    }
+
+    await client.query(
+      `UPDATE setup_comments
+       SET is_hidden = TRUE,
+           hidden_at = CURRENT_TIMESTAMP,
+           hidden_reason = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [reason, commentId],
+    );
+
+    await client.query(
+      `INSERT INTO moderation_audit_log (actor_user_id, action, target_type, target_id, reason, metadata)
+       VALUES ($1, 'comment.hide', 'comment', $2, $3, $4)`,
+      [
+        actor.id,
+        commentId,
+        reason,
+        JSON.stringify({
+          setupId: comment.setup_id,
+          bodyPreview: comment.body.slice(0, 80),
+          ...extraMetadata,
+        }),
       ],
     );
   }
@@ -1018,6 +1166,20 @@ export class AdminService {
       targetId: r.target_id,
       reason: r.reason,
       metadata: r.metadata ?? {},
+      createdAt:
+        r.created_at instanceof Date
+          ? r.created_at.toISOString()
+          : new Date(r.created_at).toISOString(),
+    };
+  }
+
+  private toCommentSummary(r: CommentDbRow): AdminCommentSummary {
+    return {
+      id: r.id,
+      setupId: r.setup_id,
+      isHidden: Boolean(r.is_hidden),
+      hiddenAt: r.hidden_at ? new Date(r.hidden_at).toISOString() : null,
+      hiddenReason: r.hidden_reason,
       createdAt:
         r.created_at instanceof Date
           ? r.created_at.toISOString()
