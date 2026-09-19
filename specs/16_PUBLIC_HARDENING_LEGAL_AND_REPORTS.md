@@ -1,7 +1,8 @@
+
 # Milestone 16: Public Hardening, Legal Pages & Driver Reports
 
 ## 1. Objective
-Make the existing pit-mat stack defensible on a public hostname: application-level throttling, registration bot friction, crawlable legal documents with a register checkbox, and a driver-initiated report queue that the Scrutineering Desk can action without a second admin product. Host TLS, nginx `limit_req`, and `pg_dump` backups are specified as runbook + example artifacts (compose still binds loopback). Block lists, appeals, and DMs stay out of scope.
+Make the existing pit-mat stack defensible on a public hostname: application-level throttling, Google reCAPTCHA v2 on registration, crawlable legal documents with a register checkbox, and a driver-initiated report queue that the Scrutineering Desk can action without a second admin product. Host TLS, nginx `limit_req`, and `pg_dump` backups are specified as runbook + example artifacts (compose still binds loopback). Block lists, appeals, and DMs stay out of scope.
 
 **Product framing:** reports protect setup-sheet integrity (spam, abuse, stolen content), not a general social graph.
 
@@ -15,9 +16,9 @@ Make the existing pit-mat stack defensible on a public hostname: application-lev
 - `/backend/src/database/schema.sql`
 - `/backend/src/main.ts` (Helmet)
 - `/backend/src/app.module.ts` (`ThrottlerModule`, `ThrottlerGuard`)
-- `/backend/src/modules/auth/guards/turnstile.guard.ts` (new)
-- `/backend/src/modules/auth/auth.controller.ts` (Turnstile on register)
-- `/backend/src/contracts/auth.contract.ts` (`turnstileToken` on register)
+- `/backend/src/modules/auth/guards/recaptcha.guard.ts` (new)
+- `/backend/src/modules/auth/auth.controller.ts` (reCAPTCHA on register)
+- `/backend/src/contracts/auth.contract.ts` (`recaptchaToken` on register)
 - `/backend/src/contracts/report.contract.ts` (new)
 - `/backend/src/contracts/admin.contract.ts` (report list/action schemas + overview KPI)
 - `/backend/src/modules/reports/reports.module.ts` (new)
@@ -26,8 +27,8 @@ Make the existing pit-mat stack defensible on a public hostname: application-lev
 - `/backend/src/modules/admin/admin.controller.ts`
 - `/backend/src/modules/admin/admin.service.ts`
 - `/frontend/src/api/reports.ts` (new)
-- `/frontend/src/api/auth.ts` (register captcha field)
-- `/frontend/src/components/auth/AuthModal.tsx` (legal checkboxes + Turnstile widget)
+- `/frontend/src/api/auth.ts` (register reCAPTCHA field)
+- `/frontend/src/components/auth/AuthModal.tsx` (legal checkboxes + reCAPTCHA v2 widget)
 - `/frontend/src/views/LegalDocumentView.tsx` (new)
 - `/frontend/src/content/legal/terms.md`
 - `/frontend/src/content/legal/privacy.md`
@@ -42,17 +43,17 @@ Make the existing pit-mat stack defensible on a public hostname: application-lev
 - `/GETTING_STARTED.md` (TLS apply steps, `pg_dump` backup, restore)
 - `/scripts/backup-pg.sh` (or `.ps1` companion documented for Windows agents)
 - `/.github/workflows/ci.yml`
-- `/.env.example` (`TURNSTILE_SECRET_KEY`, `VITE_TURNSTILE_SITE_KEY`)
+- `/.env.example` (`RECAPTCHA_SECRET_KEY`, `VITE_RECAPTCHA_SITE_KEY`)
 - `/backend/test/hardening-reports.spec.ts`
 - `/tests/e2e/admin-moderation.spec.ts` (extend) and/or `/tests/e2e/content-reports.spec.ts`
-- `/frontend/src/components/auth/AuthModal.test.tsx` (legal + captcha wiring)
+- `/frontend/src/components/auth/AuthModal.test.tsx` (legal + reCAPTCHA wiring)
 
 ---
 
 ## 3. Detailed Technical Requirements
 
 ### 3.1 Nest Helmet
-In `backend/src/main.ts`, enable `helmet` with defaults compatible with the Pit-Mat SPA (do not set `Content-Security-Policy` so strict that Vite inline or Google Fonts break until a follow-on CSP milestone). At minimum: `X-Content-Type-Options`, `X-Frame-Options` (SPA may still be framed only by itself; `SAMEORIGIN` is acceptable), hide `X-Powered-By`.
+In `backend/src/main.ts`, enable `helmet` with defaults compatible with the Pit-Mat SPA (do not set `Content-Security-Policy` so strict that Vite inline, Google Fonts, or the reCAPTCHA script origins `www.google.com` / `www.gstatic.com` break until a follow-on CSP milestone). At minimum: `X-Content-Type-Options`, `X-Frame-Options` (SPA may still be framed only by itself; `SAMEORIGIN` is acceptable), hide `X-Powered-By`.
 
 CORS stays **disabled** for the compose topology (frontend nginx already `proxy_pass` `/api/` same-origin). Document that split-origin deploys must set CORS explicitly later.
 
@@ -68,23 +69,28 @@ Host nginx `limit_req` in `/docker/host-nginx.conf.example` remains **required a
 
 E2E should not flake: use a test env `THROTTLE_DISABLED=true` honored only when `NODE_ENV=test`.
 
-### 3.3 Cloudflare Turnstile (registration only)
-Provider is **Cloudflare Turnstile** (privacy-friendly, no Google dependency).
+### 3.3 Google reCAPTCHA v2 (registration only)
+Provider is **Google reCAPTCHA v2 Checkbox** (“I'm not a robot”). Do **not** ship a homemade image/text captcha, Cloudflare Turnstile, hCaptcha, or reCAPTCHA v3 score checks in this milestone.
 
 Env:
 ```
-TURNSTILE_SECRET_KEY=
-VITE_TURNSTILE_SITE_KEY=
+RECAPTCHA_SECRET_KEY=
+VITE_RECAPTCHA_SITE_KEY=
 ```
 
-- Register body adds `turnstileToken: z.string().min(1)`.
-- `TurnstileGuard` POSTs `https://challenges.cloudflare.com/turnstile/v0/siteverify` with secret + token + remote IP (`X-Forwarded-For` first hop when present).
-- Failure: `400` `"Captcha verification failed"`.
-- **Dev/test bypass:** when `TURNSTILE_SECRET_KEY` is empty or `dev-bypass`, accept token `dev-bypass` and skip the network call. Production `.env` must set real keys; document this in GETTING_STARTED.
+Create a v2 **Checkbox** key pair in the [Google reCAPTCHA admin console](https://www.google.com/recaptcha/admin). Use the same keys in backend secret + Vite site key. Document domain allowlisting (`localhost` plus the public hostname) in GETTING_STARTED.
 
-Login does **not** require Turnstile (throttling covers brute force). Forgot-password remains unauthenticated + throttled without captcha.
+- Register body adds `recaptchaToken: z.string().min(1)`.
+- `RecaptchaGuard` POSTs `https://www.google.com/recaptcha/api/siteverify` as `application/x-www-form-urlencoded` with `secret`, `response` (the token), and `remoteip` (`X-Forwarded-For` first hop when present).
+- Treat `success !== true` as failure. Do not require a v3 `score` field.
+- Failure: `400` `"reCAPTCHA verification failed"`.
+- **Dev/test bypass:** when `RECAPTCHA_SECRET_KEY` is empty or `dev-bypass`, accept token `dev-bypass` and skip the network call. Production `.env` must set real keys; document this in GETTING_STARTED.
 
-Frontend: Turnstile widget on register mode only; send the token in `apiRegister`. Legal checkboxes (3.5) are independent.
+Login does **not** require reCAPTCHA (throttling covers brute force). Forgot-password remains unauthenticated + throttled without a challenge.
+
+Frontend: load `https://www.google.com/recaptcha/api.js` (or `react-google-recaptcha` wrapping that script) on register mode only; send the widget token in `apiRegister`. Reset the widget after a failed register so the driver must solve a fresh challenge. Legal checkboxes (3.4) are independent.
+
+Privacy: Google's terms require disclosing reCAPTCHA and linking Google's [Privacy Policy](https://policies.google.com/privacy) and [Terms of Use](https://policies.google.com/terms) from `/legal/privacy` (and the register footer is allowed to repeat a one-line “protected by reCAPTCHA” notice with those two links).
 
 ### 3.4 Legal routes and register checkbox
 SPA routes (Pit-Mat `LegalDocumentView`, `Inter` body copy, hazard-orange title):
@@ -92,7 +98,7 @@ SPA routes (Pit-Mat `LegalDocumentView`, `Inter` body copy, hazard-orange title)
 - `/legal/privacy`
 - `/legal/guidelines`
 
-Author complete, non-placeholder markdown covering: hobby community purpose, user-generated setup sheets, no warranty of mechanical safety, moderation (hide/suspend), account deletion (Milestone 15), cookies/JWT in localStorage, contact via operator email placeholder `operators@localhost`.
+Author complete, non-placeholder markdown covering: hobby community purpose, user-generated setup sheets, no warranty of mechanical safety, moderation (hide/suspend), account deletion (Milestone 15), cookies/JWT in localStorage, Google reCAPTCHA on registration (including links to Google's Privacy Policy and Terms of Use), contact via operator email placeholder `operators@localhost`.
 
 Register form (after age attestation from 15) requires:
 ```typescript
@@ -194,7 +200,7 @@ Update `GETTING_STARTED.md` with a **Public host** section:
 1. Install `/docker/host-nginx.conf.example` as the site config; provision Let’s Encrypt as already sketched in that file.
 2. Never publish compose ports off `127.0.0.1`.
 3. Backup: `scripts/backup-pg.sh` runs `docker compose exec -T rc-db pg_dump -U $POSTGRES_USER $POSTGRES_DB` to `backups/rc-garage-YYYYMMDD.sql` (script creates `backups/` which is gitignored). Document restore via `psql`.
-4. CI: `.github/workflows/ci.yml` on pull_request runs `npm run typecheck`, `npm run test:unit`, `npm run test:frontend`. Full e2e/workflow remains local/compose (do not require secrets-heavy SMTP/Turnstile in CI; use bypasses).
+4. CI: `.github/workflows/ci.yml` on pull_request runs `npm run typecheck`, `npm run test:unit`, `npm run test:frontend`. Full e2e/workflow remains local/compose (do not require secrets-heavy SMTP/reCAPTCHA in CI; use bypasses).
 
 Follow-on (document only, do not implement): IP bans, mute/block lists, suspension appeals.
 
@@ -202,7 +208,7 @@ Follow-on (document only, do not implement): IP bans, mute/block lists, suspensi
 
 ## 4. Verification & Acceptance Criteria
 1. With `THROTTLE_DISABLED` unset in a unit test double, exceeding the auth bucket returns `429` in the standard envelope.
-2. Register without `turnstileToken` returns `400`. With `TURNSTILE_SECRET_KEY=dev-bypass` and token `dev-bypass`, register succeeds.
+2. Register without `recaptchaToken` returns `400`. With `RECAPTCHA_SECRET_KEY=dev-bypass` and token `dev-bypass`, register succeeds.
 3. Register without `acceptedLegal: true` returns `400`. `/legal/terms`, `/legal/privacy`, and `/legal/guidelines` render non-empty policy text in the SPA.
 4. Unverified JWT `POST /reports` returns `403` `"Email verification required"`.
 5. Verified driver can report a public setup; a second open report on the same target from the same driver is `409`.
