@@ -42,6 +42,10 @@ export const SurfaceTypeEnum = z.enum([
 
 export const GripLevelEnum = z.enum(['low', 'medium', 'high', 'extreme']);
 
+// Crawler 3-gear boxes sit near 2.5–3.0:1; 3-speed monster-truck boxes (Losi LMT 10.16:1) need more headroom.
+export const TRANSMISSION_INTERNAL_RATIO_MIN = 1.0;
+export const TRANSMISSION_INTERNAL_RATIO_MAX = 12.0;
+
 export const DrivetrainSettingsObjectSchema = z.object({
   pinionTeeth: z
     .number()
@@ -56,8 +60,8 @@ export const DrivetrainSettingsObjectSchema = z.object({
   transmissionInternalRatio: z
     .number()
     .positive('Internal ratio must be positive')
-    .min(1.0, 'Internal ratio minimum is 1.0')
-    .max(6.0, 'Internal ratio maximum is 6.0'),
+    .min(TRANSMISSION_INTERNAL_RATIO_MIN, `Internal ratio minimum is ${TRANSMISSION_INTERNAL_RATIO_MIN.toFixed(1)}`)
+    .max(TRANSMISSION_INTERNAL_RATIO_MAX, `Internal ratio maximum is ${TRANSMISSION_INTERNAL_RATIO_MAX.toFixed(1)}`),
   calculatedFdr: z.number().positive().optional(),
   gearPitch: GearPitchEnum.default('48P'),
   motorKv: z.number().int().min(500).max(12000).optional(),
@@ -254,6 +258,7 @@ export const TRANSMISSION_PRESETS: readonly TransmissionPreset[] = [
   { id: 'traxxas-2.73', name: 'Traxxas TRX-4 (2.73:1)', internalRatio: 2.73 },
   { id: 'element-stealth-x', name: 'Element StealthX (2.81:1)', internalRatio: 2.81 },
   { id: 'vanquish-vfd', name: 'Vanquish VFD (2.55:1)', internalRatio: 2.55 },
+  { id: 'losi-lmt-10.16', name: 'Losi LMT (10.16:1)', internalRatio: 10.16 },
   { id: 'direct-drive-1.0', name: 'Direct 1:1 Transfer (1.00:1)', internalRatio: 1.0 },
 ] as const;
 

@@ -7,12 +7,19 @@ import {
   GripLevelEnum,
   MotorTypeEnum,
   SurfaceTypeEnum,
+  TRANSMISSION_INTERNAL_RATIO_MAX,
+  TRANSMISSION_INTERNAL_RATIO_MIN,
 } from './setup.contract';
 
 const DrivetrainOverrideSchema = z.object({
   pinionTeeth: z.number().int().min(9).max(60).optional(),
   spurTeeth: z.number().int().min(30).max(120).optional(),
-  transmissionInternalRatio: z.number().positive().min(1.0).max(6.0).optional(),
+  transmissionInternalRatio: z
+    .number()
+    .positive()
+    .min(TRANSMISSION_INTERNAL_RATIO_MIN)
+    .max(TRANSMISSION_INTERNAL_RATIO_MAX)
+    .optional(),
   calculatedFdr: z.number().positive().optional(),
   gearPitch: GearPitchEnum.optional(),
   motorKv: z.number().int().min(500).max(12000).optional(),

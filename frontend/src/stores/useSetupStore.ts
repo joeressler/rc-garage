@@ -12,6 +12,8 @@ import {
   CreateSetupSchema,
   defaultSetupSettings,
   prepareSettingsForSave,
+  TRANSMISSION_INTERNAL_RATIO_MAX,
+  TRANSMISSION_INTERNAL_RATIO_MIN,
   type AxleTireSpecification,
   type CreateSetupDto,
   type SetupEntity,
@@ -194,9 +196,12 @@ export const useSetupStore = create<SetupState>((set, get) => ({
       delete nextErrors['settings.drivetrain.pinionTeeth'];
     }
 
-    if (internalRatio < 1 || internalRatio > 6) {
+    if (
+      internalRatio < TRANSMISSION_INTERNAL_RATIO_MIN ||
+      internalRatio > TRANSMISSION_INTERNAL_RATIO_MAX
+    ) {
       nextErrors['settings.drivetrain.transmissionInternalRatio'] =
-        'Internal ratio must be between 1.0 and 6.0';
+        `Internal ratio must be between ${TRANSMISSION_INTERNAL_RATIO_MIN.toFixed(1)} and ${TRANSMISSION_INTERNAL_RATIO_MAX.toFixed(1)}`;
     } else {
       delete nextErrors['settings.drivetrain.transmissionInternalRatio'];
     }

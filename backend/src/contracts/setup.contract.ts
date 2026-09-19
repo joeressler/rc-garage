@@ -41,6 +41,10 @@ export const SurfaceTypeEnum = z.enum([
 
 export const GripLevelEnum = z.enum(['low', 'medium', 'high', 'extreme']);
 
+// Crawler 3-gear boxes sit near 2.5–3.0:1; 3-speed monster-truck boxes (Losi LMT 10.16:1) need more headroom.
+export const TRANSMISSION_INTERNAL_RATIO_MIN = 1.0;
+export const TRANSMISSION_INTERNAL_RATIO_MAX = 12.0;
+
 export const DrivetrainSettingsObjectSchema = z.object({
   pinionTeeth: z
     .number()
@@ -52,7 +56,11 @@ export const DrivetrainSettingsObjectSchema = z.object({
     .int()
     .min(30, 'Spur must have at least 30 teeth')
     .max(120),
-  transmissionInternalRatio: z.number().positive().min(1.0).max(6.0),
+  transmissionInternalRatio: z
+    .number()
+    .positive()
+    .min(TRANSMISSION_INTERNAL_RATIO_MIN)
+    .max(TRANSMISSION_INTERNAL_RATIO_MAX),
   calculatedFdr: z.number().positive().optional(),
   gearPitch: GearPitchEnum.default('48P'),
   motorKv: z.number().int().min(500).max(12000).optional(),

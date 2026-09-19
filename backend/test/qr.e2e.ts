@@ -121,6 +121,14 @@ async function main(): Promise<void> {
         name: 'Phoenix Trail Rig',
         make: 'Vanquish',
         model: 'VS4-10 Phoenix',
+        electronics: {
+          motor: {
+            name: 'Holmes 540',
+            productUrl: 'https://example.com/holmes-540',
+            motorType: 'brushed',
+            kv: 1800,
+          },
+        },
       },
     });
     assert(vehicle.status === 201, `create vehicle failed: ${vehicle.status}`);
@@ -242,6 +250,15 @@ async function main(): Promise<void> {
     assert(
       sheet?.vehicle.vehicleClass === 'crawler_scale',
       'inspection sheet should include vehicle class',
+    );
+    assert(
+      sheet?.vehicle.electronics?.motor?.name === 'Holmes 540',
+      'inspection sheet should include chassis radio-box motor name',
+    );
+    assert(
+      sheet?.vehicle.electronics?.motor?.productUrl ===
+        'https://example.com/holmes-540',
+      'inspection sheet should include chassis radio-box product URL',
     );
     assert(sheet?.batteryCellCount === 3, 'inspection sheet should include battery cell count');
     assert(

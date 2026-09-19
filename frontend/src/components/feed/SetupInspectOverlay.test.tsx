@@ -56,6 +56,21 @@ const INSPECTION: PublicInspectionSheet = {
     model: 'Enduro Sendero HD',
     scale: '1/10',
     vehicleClass: 'crawler_scale',
+    electronics: {
+      motor: {
+        name: 'Holmes 540',
+        productUrl: 'https://example.com/holmes-540',
+        motorType: 'brushed' as const,
+        kv: 1800,
+      },
+      esc: {
+        name: 'Hobbywing 1080',
+      },
+      steeringServo: {
+        name: 'Reefs 422HD',
+        torqueKg: 25,
+      },
+    },
   },
   frontShock: { oilViscosityValue: 350, oilViscosityUnit: 'CST' },
   rearShock: { oilViscosityValue: 300, oilViscosityUnit: 'CST' },
@@ -135,6 +150,26 @@ describe('SetupInspectOverlay', () => {
     expect(screen.getByText(/95g brass/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Back to Community Feed/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Save Telemetry Sheet/i })).not.toBeInTheDocument();
+  });
+
+  it('renders named electronics as shop links when a product URL is set', async () => {
+    render(
+      <SetupInspectOverlay
+        open
+        slug={SETUP.qrSlug}
+        onClose={vi.fn()}
+        onRequestFork={vi.fn()}
+      />,
+    );
+
+    const motorLink = await screen.findByRole('link', { name: 'Holmes 540' });
+    expect(motorLink).toHaveAttribute('href', 'https://example.com/holmes-540');
+    expect(motorLink).toHaveAttribute('target', '_blank');
+    expect(motorLink).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(screen.getByText('Hobbywing 1080')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Hobbywing 1080' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Reefs 422HD/)).toBeInTheDocument();
+    expect(screen.getByText(/25 kg·cm/)).toBeInTheDocument();
   });
 
   it('returns to the feed and can request a fork onto an owned chassis', async () => {

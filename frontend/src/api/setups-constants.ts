@@ -2,8 +2,15 @@ import type {
   FluidUnit,
   FoamInsertType,
   GripLevel,
+  MotorType,
   SurfaceType,
 } from './setups';
+
+export const MOTOR_TYPES: readonly { value: MotorType; label: string }[] = [
+  { value: 'brushed', label: 'Brushed' },
+  { value: 'brushless_sensored', label: 'Brushless Sensored' },
+  { value: 'brushless_sensorless', label: 'Brushless Sensorless' },
+] as const;
 
 export const FOAM_INSERTS: readonly { value: FoamInsertType; label: string }[] = [
   { value: 'dual_stage_foam', label: 'Dual Stage Closed/Open Cell' },

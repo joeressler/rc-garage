@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   CreateVehicleDto,
   DeleteVehicleResult,
+  parseChassisElectronics,
   UpdateVehicleDto,
   VehicleClass,
   VehicleEntity,
@@ -20,6 +21,7 @@ interface VehicleRow {
   scale: string;
   vehicle_class: string;
   is_archived: boolean;
+  electronics?: unknown;
   created_at: Date | string;
   updated_at: Date | string;
   setup_count?: string | number;
@@ -41,6 +43,20 @@ interface SetupSummaryRow {
   created_at: Date | string;
 }
 
+const VEHICLE_RETURNING = `
+  id,
+  user_id,
+  name,
+  make,
+  model,
+  scale,
+  vehicle_class,
+  is_archived,
+  electronics,
+  created_at,
+  updated_at
+`;
+
 const VEHICLE_COLUMNS = `
   v.id,
   v.user_id,
@@ -50,6 +66,7 @@ const VEHICLE_COLUMNS = `
   v.scale,
   v.vehicle_class,
   v.is_archived,
+  v.electronics,
   v.created_at,
   v.updated_at,
   (
@@ -68,20 +85,18 @@ export class VehiclesService {
 
   async create(userId: string, dto: CreateVehicleDto): Promise<VehicleEntity> {
     const result = await this.database.query<VehicleRow>(
-      `INSERT INTO vehicles (user_id, name, make, model, scale, vehicle_class)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING
-         id,
-         user_id,
-         name,
-         make,
-         model,
-         scale,
-         vehicle_class,
-         is_archived,
-         created_at,
-         updated_at`,
-      [userId, dto.name, dto.make, dto.model, dto.scale, dto.vehicleClass],
+      `INSERT INTO vehicles (user_id, name, make, model, scale, vehicle_class, electronics)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+       RETURNING ${VEHICLE_RETURNING}`,
+      [
+        userId,
+        dto.name,
+        dto.make,
+        dto.model,
+        dto.scale,
+        dto.vehicleClass,
+        JSON.stringify(dto.electronics ?? {}),
+      ],
     );
 
     return this.toEntity({ ...result.rows[0], setup_count: 0 });
@@ -177,6 +192,10 @@ export class VehiclesService {
       assignments.push(`is_archived = $${index++}`);
       params.push(dto.isArchived);
     }
+    if (dto.electronics !== undefined) {
+      assignments.push(`electronics = $${index++}::jsonb`);
+      params.push(JSON.stringify(dto.electronics));
+    }
 
     if (assignments.length > 0) {
       assignments.push('updated_at = CURRENT_TIMESTAMP');
@@ -191,28 +210,8 @@ export class VehiclesService {
         ? `UPDATE vehicles
            ${setClause}
            WHERE id = $${index++} AND user_id = $${index}
-           RETURNING
-             id,
-             user_id,
-             name,
-             make,
-             model,
-             scale,
-             vehicle_class,
-             is_archived,
-             created_at,
-             updated_at`
-        : `SELECT
-             id,
-             user_id,
-             name,
-             make,
-             model,
-             scale,
-             vehicle_class,
-             is_archived,
-             created_at,
-             updated_at
+           RETURNING ${VEHICLE_RETURNING}`
+        : `SELECT ${VEHICLE_RETURNING}
            FROM vehicles
            WHERE id = $1 AND user_id = $2`,
       params,
@@ -283,6 +282,7 @@ export class VehiclesService {
       scale: row.scale as VehicleScale,
       vehicleClass: row.vehicle_class as VehicleClass,
       isArchived: row.is_archived,
+      electronics: parseChassisElectronics(row.electronics),
       setupCount: Number(row.setup_count ?? 0),
       createdAt: this.toIso(row.created_at),
       updatedAt: this.toIso(row.updated_at),

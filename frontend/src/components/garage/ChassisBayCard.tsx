@@ -1,3 +1,4 @@
+import { radioBoxTeaser } from '../../api/vehicles';
 import { formatChassisStencil } from '../../lib/vehicle-labels';
 import type { Vehicle } from '../../stores/useGarageStore';
 
@@ -20,6 +21,7 @@ export function ChassisBayCard({
   onDelete,
 }: ChassisBayCardProps) {
   const setupLabel = vehicle.setupCount === 1 ? '1 SETUP SHEET' : `${vehicle.setupCount} SETUP SHEETS`;
+  const radioBox = radioBoxTeaser(vehicle.electronics);
 
   return (
     <article className="chassis-tread-border">
@@ -42,6 +44,11 @@ export function ChassisBayCard({
         <p className="mt-2 font-mono text-sm text-readout-dim">
           {vehicle.make} {vehicle.model}
         </p>
+        {radioBox ? (
+          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.16em] text-neon-radio">
+            Radio box stamped · {radioBox}
+          </p>
+        ) : null}
 
         {isActive ? (
           <p className="mt-3 inline-block border border-neon-radio px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-neon-radio">

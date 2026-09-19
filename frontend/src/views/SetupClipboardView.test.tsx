@@ -16,6 +16,7 @@ const VEHICLE: Vehicle = {
   scale: '1/10',
   vehicleClass: 'crawler_scale',
   isArchived: false,
+  electronics: {},
   setupCount: 1,
   createdAt: '2026-09-16T00:00:00.000Z',
   updatedAt: '2026-09-16T00:00:00.000Z',
@@ -30,6 +31,7 @@ const VEHICLE_B: Vehicle = {
   scale: '1/10',
   vehicleClass: 'crawler_scale',
   isArchived: false,
+  electronics: {},
   setupCount: 1,
   createdAt: '2026-09-16T00:00:00.000Z',
   updatedAt: '2026-09-16T00:00:00.000Z',
@@ -392,6 +394,30 @@ describe('SetupClipboardView', () => {
     // (54 / 14) * 3.25 = 12.54:1
     expect(screen.getByText(/12\.54:1/i)).toBeInTheDocument();
     expect(ratioSelect).toHaveValue('custom');
+  });
+
+  it('stamps LMT 10.16:1 internal ratio without hitting the gearbox cap', async () => {
+    useAuthStore.setState({ token: 'test-token', isAuthenticated: true });
+    useGarageStore.setState({ vehicles: [VEHICLE], activeVehicleId: VEHICLE.id });
+
+    renderClipboard();
+    await settleSwitcher();
+
+    fireEvent.change(screen.getByLabelText('Transmission Internal Ratio'), {
+      target: { value: '10.16' },
+    });
+    fireEvent.change(screen.getByLabelText('Pinion Gear Teeth'), {
+      target: { value: '19' },
+    });
+    fireEvent.change(screen.getByLabelText('Spur Gear Teeth Input'), {
+      target: { value: '35' },
+    });
+
+    // (35 / 19) * 10.16 = 18.72:1
+    expect(screen.getByText(/18\.72:1/i)).toBeInTheDocument();
+    expect(
+      useSetupStore.getState().validationErrors['settings.drivetrain.transmissionInternalRatio'],
+    ).toBeUndefined();
   });
 
   it('lists shock and tire validation messages when save is blocked', async () => {

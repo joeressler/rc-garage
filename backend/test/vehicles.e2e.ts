@@ -138,6 +138,7 @@ async function main(): Promise<void> {
       setupCount: number;
       isArchived: boolean;
       userId: string;
+      electronics?: { motor?: { name?: string; productUrl?: string } };
     };
     assert(vehicle.scale === '1/10', 'default scale should be 1/10');
     assert(
@@ -146,6 +147,89 @@ async function main(): Promise<void> {
     );
     assert(vehicle.setupCount === 0, 'new chassis should have zero setups');
     assert(vehicle.isArchived === false, 'new chassis should be active');
+    assert(
+      JSON.stringify(vehicle.electronics ?? {}) === '{}',
+      'new chassis radio box should default to empty electronics',
+    );
+
+    const javascriptUrl = await request(baseUrl, 'POST', '/vehicles', {
+      token: tokenA,
+      body: {
+        name: 'Hacked Rig',
+        make: 'Axial',
+        model: 'Capra',
+        electronics: {
+          motor: {
+            name: 'Bad Link',
+            productUrl: 'javascript:alert(1)',
+          },
+        },
+      },
+    });
+    assert(
+      javascriptUrl.status === 400,
+      `javascript product URL should 400, got ${javascriptUrl.status}`,
+    );
+    assert(
+      JSON.stringify(javascriptUrl.body.message).includes('productUrl'),
+      'javascript product URL should mention productUrl',
+    );
+
+    const ftpUrl = await request(baseUrl, 'POST', '/vehicles', {
+      token: tokenA,
+      body: {
+        name: 'Ftp Rig',
+        make: 'Axial',
+        model: 'Capra',
+        electronics: {
+          esc: {
+            name: 'Castle',
+            productUrl: 'ftp://example.com/esc',
+          },
+        },
+      },
+    });
+    assert(ftpUrl.status === 400, `ftp product URL should 400, got ${ftpUrl.status}`);
+
+    const withRadio = await request(baseUrl, 'PUT', `/vehicles/${vehicle.id}`, {
+      token: tokenA,
+      body: {
+        electronics: {
+          motor: {
+            name: 'Holmes 540',
+            productUrl: 'https://example.com/holmes-540',
+            motorType: 'brushed',
+            kv: 1800,
+          },
+          battery: {
+            name: 'SMC 3S',
+            cellCount: 3,
+          },
+          steeringServo: {
+            name: 'Reefs 422HD',
+            torqueKg: 25,
+          },
+        },
+      },
+    });
+    assert(withRadio.status === 200, `electronics update failed: ${withRadio.status}`);
+    assert(
+      withRadio.body.data.electronics?.motor?.name === 'Holmes 540',
+      'updated radio box should stamp the motor name',
+    );
+    assert(
+      withRadio.body.data.electronics?.motor?.productUrl ===
+        'https://example.com/holmes-540',
+      'updated radio box should persist the motor product URL',
+    );
+    assert(
+      withRadio.body.data.electronics?.battery?.cellCount === 3,
+      'updated radio box should persist battery cell count',
+    );
+    assert(
+      withRadio.body.data.electronics?.steeringServo?.torqueKg === 25,
+      'updated radio box should persist servo kg·cm torque',
+    );
 
     const invalidId = await request(baseUrl, 'GET', '/vehicles/not-a-uuid', {
       token: tokenA,

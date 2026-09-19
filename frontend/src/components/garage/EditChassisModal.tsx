@@ -4,8 +4,10 @@ import {
   EMPTY_VEHICLE_DRAFT,
   vehicleFormErrors,
   type VehicleDraft,
+  type VehicleFormErrors,
 } from '../../api/vehicles';
 import { useGarageStore, type Vehicle } from '../../stores/useGarageStore';
+import { ChassisElectronicsFields } from './ChassisElectronicsFields';
 import { ChassisSpecFields } from './ChassisSpecFields';
 
 interface EditChassisModalProps {
@@ -19,7 +21,7 @@ interface EditChassisModalProps {
 export function EditChassisModal({ vehicle, onClose }: EditChassisModalProps) {
   const updateVehicle = useGarageStore((state) => state.updateVehicle);
   const [values, setValues] = useState<VehicleDraft>(EMPTY_VEHICLE_DRAFT);
-  const [errors, setErrors] = useState<Partial<Record<keyof VehicleDraft, string>>>({});
+  const [errors, setErrors] = useState<VehicleFormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -31,6 +33,7 @@ export function EditChassisModal({ vehicle, onClose }: EditChassisModalProps) {
         model: vehicle.model,
         scale: vehicle.scale,
         vehicleClass: vehicle.vehicleClass,
+        electronics: vehicle.electronics ?? {},
       });
       setErrors({});
       setSubmitError(null);
@@ -75,7 +78,7 @@ export function EditChassisModal({ vehicle, onClose }: EditChassisModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-chassis-title"
-        className="knurled-aluminum relative w-full max-w-md p-6 shadow-beveled-panel"
+        className="knurled-aluminum relative max-h-[90vh] w-full max-w-2xl overflow-y-auto p-6 shadow-beveled-panel"
         onClick={(event) => event.stopPropagation()}
       >
         <span className="hex-rivet left-2 top-2" />
@@ -95,6 +98,15 @@ export function EditChassisModal({ vehicle, onClose }: EditChassisModalProps) {
 
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
           <ChassisSpecFields
+            values={values}
+            errors={errors}
+            disabled={isSubmitting}
+            onChange={(next) => {
+              setValues(next);
+              setErrors({});
+            }}
+          />
+          <ChassisElectronicsFields
             values={values}
             errors={errors}
             disabled={isSubmitting}

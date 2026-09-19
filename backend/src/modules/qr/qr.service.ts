@@ -7,6 +7,7 @@ import {
   QrQuery,
 } from '../../contracts/qr.contract';
 import { SetupSettings } from '../../contracts/setup.contract';
+import { parseChassisElectronics } from '../../contracts/vehicle.contract';
 import { DatabaseService } from '../../database/database.service';
 import { buildChassisInspectionUrl } from './utils/qr-url.util';
 
@@ -25,6 +26,7 @@ interface PublicInspectionRow {
   model: string;
   scale: string;
   vehicle_class: string;
+  electronics?: unknown;
 }
 
 const QR_ECC_LEVEL = 'H' as const;
@@ -82,7 +84,8 @@ export class QrService {
          v.make,
          v.model,
          v.scale,
-         v.vehicle_class
+         v.vehicle_class,
+         v.electronics
        FROM setups s
        JOIN vehicles v ON v.id = s.vehicle_id
        WHERE s.qr_slug = $1
@@ -113,6 +116,7 @@ export class QrService {
         scale: row.scale as PublicInspectionSheet['vehicle']['scale'],
         vehicleClass:
           row.vehicle_class as PublicInspectionSheet['vehicle']['vehicleClass'],
+        electronics: parseChassisElectronics(row.electronics),
       },
       frontShock: {
         oilViscosityValue: settings.suspension.front.oilViscosityValue,

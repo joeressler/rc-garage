@@ -15,6 +15,7 @@ const VEHICLE: Vehicle = {
   scale: '1/10',
   vehicleClass: 'crawler_scale',
   isArchived: false,
+  electronics: {},
   setupCount: 1,
   createdAt: '2026-09-16T00:00:00.000Z',
   updatedAt: '2026-09-16T00:00:00.000Z',
@@ -29,6 +30,7 @@ const VEHICLE_B: Vehicle = {
   scale: '1/10',
   vehicleClass: 'crawler_scale',
   isArchived: false,
+  electronics: {},
   setupCount: 1,
   createdAt: '2026-09-16T00:00:00.000Z',
   updatedAt: '2026-09-16T00:00:00.000Z',
@@ -116,6 +118,15 @@ describe('useSetupStore', () => {
     // Change pinion to 12T -> (54 / 12) * 2.6 = 11.7
     useSetupStore.getState().updateGearing(12, 54, 2.6);
     expect(useSetupStore.getState().activeSettings.drivetrain.calculatedFdr).toBe(11.7);
+  });
+
+  it('accepts Losi LMT 10.16:1 internal ratio and stamps FDR', () => {
+    // (35 / 19) * 10.16 = 18.72
+    useSetupStore.getState().updateGearing(19, 35, 10.16);
+    expect(useSetupStore.getState().activeSettings.drivetrain.calculatedFdr).toBe(18.72);
+    expect(
+      useSetupStore.getState().validationErrors['settings.drivetrain.transmissionInternalRatio'],
+    ).toBeUndefined();
   });
 
   it('flags an inline validation error if spur teeth <= pinion teeth', () => {

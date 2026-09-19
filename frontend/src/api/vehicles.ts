@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { apiJson } from './http';
 import type { VehicleClass, VehicleScale } from './qr';
+import { MotorTypeEnum, type MotorType } from './setups';
 
 export type { VehicleClass, VehicleScale };
 
@@ -25,8 +26,91 @@ export const VEHICLE_CLASSES = [
   'monster_truck',
 ] as const satisfies readonly VehicleClass[];
 
+export const RADIO_BOX_SLOTS = [
+  { key: 'motor', label: 'Motor' },
+  { key: 'esc', label: 'ESC' },
+  { key: 'steeringServo', label: 'Steering servo' },
+  { key: 'receiver', label: 'Receiver' },
+  { key: 'battery', label: 'Battery' },
+  { key: 'winch', label: 'Winch' },
+  { key: 'lightKit', label: 'Light kit' },
+] as const;
+
+export type RadioBoxSlotKey = (typeof RADIO_BOX_SLOTS)[number]['key'];
+
 export const VehicleScaleEnum = z.enum(VEHICLE_SCALES);
 export const VehicleClassEnum = z.enum(VEHICLE_CLASSES);
+
+function blankToUndefined(value: unknown): unknown {
+  if (value === '' || value === null) {
+    return undefined;
+  }
+  if (typeof value === 'string' && value.trim() === '') {
+    return undefined;
+  }
+  return value;
+}
+
+function optionalInt(min: number, max: number) {
+  return z.preprocess((value) => {
+    const next = blankToUndefined(value);
+    if (typeof next === 'string') {
+      const parsed = Number(next);
+      return Number.isFinite(parsed) ? parsed : next;
+    }
+    return next;
+  }, z.number().int().min(min).max(max).optional());
+}
+
+function optionalNumber(min: number, max: number) {
+  return z.preprocess((value) => {
+    const next = blankToUndefined(value);
+    if (typeof next === 'string') {
+      const parsed = Number(next);
+      return Number.isFinite(parsed) ? parsed : next;
+    }
+    return next;
+  }, z.number().min(min).max(max).optional());
+}
+
+export const ProductUrlSchema = z.preprocess(
+  blankToUndefined,
+  z
+    .string()
+    .max(500)
+    .refine((url) => /^https?:\/\//i.test(url), {
+      message: 'Product link must start with http:// or https://',
+    })
+    .optional(),
+);
+
+export const ElectronicsComponentSchema = z.object({
+  name: z.preprocess(blankToUndefined, z.string().max(80).optional()),
+  productUrl: ProductUrlSchema,
+});
+
+export const MotorElectronicsSchema = ElectronicsComponentSchema.extend({
+  motorType: z.preprocess(blankToUndefined, MotorTypeEnum.optional()),
+  kv: optionalInt(500, 12000),
+});
+
+export const BatteryElectronicsSchema = ElectronicsComponentSchema.extend({
+  cellCount: optionalInt(1, 8),
+});
+
+export const ServoElectronicsSchema = ElectronicsComponentSchema.extend({
+  torqueKg: optionalNumber(1, 100),
+});
+
+export const ChassisElectronicsSchema = z.object({
+  motor: MotorElectronicsSchema.optional(),
+  esc: ElectronicsComponentSchema.optional(),
+  steeringServo: ServoElectronicsSchema.optional(),
+  receiver: ElectronicsComponentSchema.optional(),
+  battery: BatteryElectronicsSchema.optional(),
+  winch: ElectronicsComponentSchema.optional(),
+  lightKit: ElectronicsComponentSchema.optional(),
+});
 
 export const CreateVehicleSchema = z.object({
   name: z.string().min(1, 'Name the chassis bay').max(60),
@@ -34,14 +118,25 @@ export const CreateVehicleSchema = z.object({
   model: z.string().min(1, 'Model is required').max(50),
   scale: VehicleScaleEnum.default('1/10'),
   vehicleClass: VehicleClassEnum.default('crawler_scale'),
+  electronics: ChassisElectronicsSchema.optional(),
 });
 
-export const UpdateVehicleSchema = CreateVehicleSchema.partial().extend({
-  isArchived: z.boolean().optional(),
-});
+export const UpdateVehicleSchema = CreateVehicleSchema.omit({
+  electronics: true,
+})
+  .partial()
+  .extend({
+    isArchived: z.boolean().optional(),
+    electronics: ChassisElectronicsSchema.optional(),
+  });
 
 export type CreateVehicleDto = z.infer<typeof CreateVehicleSchema>;
 export type UpdateVehicleDto = z.infer<typeof UpdateVehicleSchema>;
+export type ElectronicsComponent = z.infer<typeof ElectronicsComponentSchema>;
+export type MotorElectronics = z.infer<typeof MotorElectronicsSchema>;
+export type BatteryElectronics = z.infer<typeof BatteryElectronicsSchema>;
+export type ServoElectronics = z.infer<typeof ServoElectronicsSchema>;
+export type ChassisElectronics = z.infer<typeof ChassisElectronicsSchema>;
 
 export interface Vehicle {
   id: string;
@@ -52,6 +147,7 @@ export interface Vehicle {
   scale: VehicleScale;
   vehicleClass: VehicleClass;
   isArchived: boolean;
+  electronics: ChassisElectronics;
   setupCount: number;
   createdAt: string;
   updatedAt: string;
@@ -68,7 +164,10 @@ export type VehicleDraft = {
   model: string;
   scale: VehicleScale;
   vehicleClass: VehicleClass;
+  electronics: ChassisElectronics;
 };
+
+export const EMPTY_CHASSIS_ELECTRONICS: ChassisElectronics = {};
 
 export const EMPTY_VEHICLE_DRAFT: VehicleDraft = {
   name: '',
@@ -76,28 +175,69 @@ export const EMPTY_VEHICLE_DRAFT: VehicleDraft = {
   model: '',
   scale: '1/10',
   vehicleClass: 'crawler_scale',
+  electronics: EMPTY_CHASSIS_ELECTRONICS,
 };
 
+export type VehicleFormErrors = Record<string, string>;
+
 /**
- * Purpose: flatten Zod issues into the first message per chassis form field.
+ * Purpose: flatten Zod issues, including dotted electronics paths, into the first message per field.
  */
-export function vehicleFormErrors(error: z.ZodError): Partial<Record<keyof VehicleDraft, string>> {
-  const fields: Partial<Record<keyof VehicleDraft, string>> = {};
+export function vehicleFormErrors(error: z.ZodError): VehicleFormErrors {
+  const fields: VehicleFormErrors = {};
   for (const issue of error.issues) {
-    const key = issue.path[0];
-    if (
-      key === 'name' ||
-      key === 'make' ||
-      key === 'model' ||
-      key === 'scale' ||
-      key === 'vehicleClass'
-    ) {
-      if (!fields[key]) {
-        fields[key] = issue.message;
-      }
+    const key = issue.path.map(String).join('.');
+    if (!key || fields[key]) {
+      continue;
     }
+    fields[key] = issue.message;
   }
   return fields;
+}
+
+export function isHttpProductUrl(url: string | undefined): url is string {
+  return typeof url === 'string' && /^https?:\/\//i.test(url.trim());
+}
+
+type RadioBoxComponent = ElectronicsComponent & {
+  motorType?: MotorType;
+  kv?: number;
+  cellCount?: number;
+  torqueKg?: number;
+};
+
+export function radioBoxSlotFilled(component: RadioBoxComponent | undefined): boolean {
+  if (!component) {
+    return false;
+  }
+  return Boolean(
+    component.name?.trim() ||
+      component.productUrl?.trim() ||
+      component.motorType ||
+      component.kv != null ||
+      component.cellCount != null ||
+      component.torqueKg != null,
+  );
+}
+
+export function radioBoxTeaser(electronics: ChassisElectronics | undefined): string | null {
+  if (!electronics) {
+    return null;
+  }
+  for (const slot of RADIO_BOX_SLOTS) {
+    const name = electronics[slot.key]?.name?.trim();
+    if (name) {
+      return name;
+    }
+  }
+  return null;
+}
+
+export function electronicsHasSpec(electronics: ChassisElectronics | undefined): boolean {
+  if (!electronics) {
+    return false;
+  }
+  return RADIO_BOX_SLOTS.some((slot) => radioBoxSlotFilled(electronics[slot.key]));
 }
 
 export function apiListVehicles(token: string): Promise<Vehicle[]> {

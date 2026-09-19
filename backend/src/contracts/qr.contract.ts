@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { FluidUnitEnum } from './setup.contract';
-import { VehicleClassEnum, VehicleScaleEnum } from './vehicle.contract';
+import {
+  ChassisElectronicsSchema,
+  VehicleClassEnum,
+  VehicleScaleEnum,
+} from './vehicle.contract';
 
 export const QrFormatSchema = z.enum(['svg', 'png']);
 
@@ -24,6 +28,7 @@ export const PublicInspectionVehicleSchema = z.object({
   model: z.string(),
   scale: VehicleScaleEnum,
   vehicleClass: VehicleClassEnum,
+  electronics: ChassisElectronicsSchema.optional().default({}),
 });
 
 export const PublicInspectionShockSchema = z.object({

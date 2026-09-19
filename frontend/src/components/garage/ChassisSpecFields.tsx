@@ -1,10 +1,10 @@
-import type { VehicleDraft } from '../../api/vehicles';
+import type { VehicleDraft, VehicleFormErrors } from '../../api/vehicles';
 import { VEHICLE_CLASSES, VEHICLE_SCALES } from '../../api/vehicles';
 import { VEHICLE_CLASS_LABELS } from '../../lib/vehicle-labels';
 
 interface ChassisSpecFieldsProps {
   values: VehicleDraft;
-  errors: Partial<Record<keyof VehicleDraft, string>>;
+  errors: VehicleFormErrors;
   disabled?: boolean;
   onChange: (values: VehicleDraft) => void;
 }

@@ -1,4 +1,5 @@
 import { apiJson } from './http';
+import type { ChassisElectronics } from './vehicles';
 
 export type VehicleScale = '1/24' | '1/18' | '1/10' | '1/8' | '1/7' | '1/5';
 
@@ -19,6 +20,7 @@ export interface PublicInspectionVehicle {
   model: string;
   scale: VehicleScale;
   vehicleClass: VehicleClass;
+  electronics?: ChassisElectronics;
 }
 
 export interface PublicInspectionShock {

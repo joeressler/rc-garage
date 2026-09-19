@@ -10,7 +10,15 @@ import {
   type SetupEntity,
   type SetupSettings,
 } from '../../api/setups';
-import { FOAM_INSERTS, GRIP_LEVELS, SURFACES } from '../../api/setups-constants';
+import { FOAM_INSERTS, GRIP_LEVELS, MOTOR_TYPES, SURFACES } from '../../api/setups-constants';
+import {
+  electronicsHasSpec,
+  isHttpProductUrl,
+  RADIO_BOX_SLOTS,
+  radioBoxSlotFilled,
+  type ChassisElectronics,
+  type ElectronicsComponent,
+} from '../../api/vehicles';
 import { formatFdr, formatShock, VEHICLE_CLASS_LABELS } from '../../lib/vehicle-labels';
 import { useAuthStore } from '../../stores/useAuthStore';
 import type { ForkToGarageSource } from './ForkToGarageModal';
@@ -309,6 +317,12 @@ function InspectedSheet({
             </dd>
           </div>
         </ReadoutDrawer>
+
+        {electronicsHasSpec(vehicle?.electronics) ? (
+          <div className="lg:col-span-2">
+            <RadioBoxReadout electronics={vehicle?.electronics ?? {}} />
+          </div>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-3 border-t border-metal-border pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -321,6 +335,81 @@ function InspectedSheet({
           Fork to My Garage
         </button>
       </div>
+    </div>
+  );
+}
+
+function RadioBoxReadout({ electronics }: { electronics: ChassisElectronics }) {
+  return (
+    <ReadoutDrawer kicker="Drawer E · Radio Box & Electronics" title="Chassis Electronics">
+      {RADIO_BOX_SLOTS.map((slot) => (
+        <ElectronicsComponentReadout
+          key={slot.key}
+          label={slot.label}
+          component={electronics[slot.key]}
+          extra={slotExtras(slot.key, electronics)}
+        />
+      ))}
+    </ReadoutDrawer>
+  );
+}
+
+function slotExtras(key: (typeof RADIO_BOX_SLOTS)[number]['key'], electronics: ChassisElectronics): string | undefined {
+  if (key === 'motor') {
+    const parts: string[] = [];
+    if (electronics.motor?.motorType) {
+      parts.push(labelFrom(MOTOR_TYPES, electronics.motor.motorType));
+    }
+    if (electronics.motor?.kv != null) {
+      parts.push(`${electronics.motor.kv} kV`);
+    }
+    return parts.length > 0 ? parts.join(' · ') : undefined;
+  }
+  if (key === 'battery' && electronics.battery?.cellCount != null) {
+    return `${electronics.battery.cellCount}S`;
+  }
+  if (key === 'steeringServo' && electronics.steeringServo?.torqueKg != null) {
+    return `${electronics.steeringServo.torqueKg} kg·cm`;
+  }
+  return undefined;
+}
+
+function ElectronicsComponentReadout({
+  label,
+  component,
+  extra,
+}: {
+  label: string;
+  component?: ElectronicsComponent;
+  extra?: string;
+}) {
+  if (!radioBoxSlotFilled(component) && !extra) {
+    return null;
+  }
+
+  const name = component?.name?.trim();
+  const url = component?.productUrl?.trim();
+  const displayName = name || label;
+  const linked = isHttpProductUrl(url);
+
+  return (
+    <div className="border border-metal-border bg-pit-black px-3 py-2">
+      <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-readout-muted">{label}</dt>
+      <dd className="mt-1 font-mono text-sm text-readout-bright">
+        {linked ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-hazard-orange underline decoration-neon-radio underline-offset-2 hover:text-neon-radio"
+          >
+            {displayName}
+          </a>
+        ) : (
+          <span>{name || '—'}</span>
+        )}
+        {extra ? <span className="text-readout-dim"> · {extra}</span> : null}
+      </dd>
     </div>
   );
 }

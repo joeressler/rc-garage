@@ -165,3 +165,20 @@ Before submitting any code change:
 5. Verify TypeScript compilation without emit errors:
    - Backend: `cd backend ; npx tsc --noEmit ; cd ..`
    - Frontend: `cd frontend ; npx tsc --noEmit ; cd ..`
+
+---
+
+## Learned User Preferences
+
+- Prefer `cmd.exe /c` for agent shell commands; Cursor PowerShell on this Windows machine does not inherit PATH, so tools like `docker` fail or trigger an "Open with" dialog.
+- Swapping chassis on a setup sheet must load that chassis' existing setup or create a new one; never retarget `vehicleId` and rewrite another chassis' spec.
+- Foreign setups from QR or the community feed must inspect in a read-only overlay over the feed; do not load them into the driver's active clipboard until they fork onto an owned chassis.
+- Chassis electronics belong on the Fleet Garage vehicle (one radio box per chassis) with optional product URLs that inspect views hyperlink; they are not per-setup-sheet telemetry.
+- Setup-clipboard save validation must visually highlight the invalid telemetry fields; do not block save with "Fix highlighted telemetry inputs" and no highlights.
+
+## Learned Workspace Facts
+
+- `transmissionInternalRatio` is bounded 1.0–12.0 via `TRANSMISSION_INTERNAL_RATIO_MIN/MAX` in setup and fork contracts so 3-speed boxes such as Losi LMT 10.16:1 are valid; do not restore a crawler-only 6.0 cap.
+- Docker frontend nginx (`frontend/docker/frontend-nginx.conf`) must `proxy_pass` `/api/` to `rc-backend:5742`; without it, API POSTs hit SPA `try_files` and return 405.
+- Chassis electronics live in `vehicles.electronics` JSONB (migration 003), edited through `ChassisElectronicsFields`; steering servos use `torqueKg`; forking a tune does not copy the author's electronics onto the recipient bay.
+- `SetupInspectOverlay` on the community feed is the inspect surface for foreign and QR sheets; owned sheets stay on `SetupClipboardView` with `ClipboardSetupSwitcher` to change setups on the same chassis or list all account setups.

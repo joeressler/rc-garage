@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { TRANSMISSION_PRESETS } from '../../api/setups';
+import { TRANSMISSION_INTERNAL_RATIO_MAX, TRANSMISSION_INTERNAL_RATIO_MIN, TRANSMISSION_PRESETS } from '../../api/setups';
 import { formatFdr } from '../../lib/vehicle-labels';
 import { useSetupStore } from '../../stores/useSetupStore';
 
@@ -168,8 +168,8 @@ export function DrivetrainToolboxCard() {
                 type="number"
                 aria-label="Custom internal ratio"
                 step="0.01"
-                min={1.0}
-                max={6.0}
+                min={TRANSMISSION_INTERNAL_RATIO_MIN}
+                max={TRANSMISSION_INTERNAL_RATIO_MAX}
                 value={internalRatio}
                 onChange={(e) => {
                   const val = parseFloat(e.target.value);

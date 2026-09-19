@@ -205,6 +205,7 @@ describe('CommunityFeedWorkbench', () => {
           scale: '1/10',
           vehicleClass: 'crawler_scale',
           isArchived: false,
+          electronics: {},
           setupCount: 0,
           createdAt: '2026-09-17T00:00:00Z',
           updatedAt: '2026-09-17T00:00:00Z',
