@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import type { UserRole } from '../api/admin';
 import { AdminOverviewPanel } from '../components/admin/AdminOverviewPanel';
 import { ModerationAuditLogPanel } from '../components/admin/ModerationAuditLogPanel';
+import { ReportQueuePanel } from '../components/admin/ReportQueuePanel';
 import { SetupModerationTable } from '../components/admin/SetupModerationTable';
 import { UserModerationTable } from '../components/admin/UserModerationTable';
 import { useAdminStore } from '../stores/useAdminStore';
@@ -12,7 +13,7 @@ interface AdminConsoleWorkbenchProps {
   onRequestAuth: () => void;
 }
 
-type AdminTab = 'users' | 'setups' | 'audit';
+type AdminTab = 'users' | 'setups' | 'audit' | 'reports';
 
 /**
  * Purpose: render the Scrutineering Desk admin console workbench for platform operators.
@@ -30,6 +31,8 @@ export function AdminConsoleWorkbench({
   const setupsHasMore = useAdminStore((state) => state.setupsHasMore);
   const auditLogs = useAdminStore((state) => state.auditLogs);
   const auditLogsHasMore = useAdminStore((state) => state.auditLogsHasMore);
+  const reports = useAdminStore((state) => state.reports);
+  const reportsHasMore = useAdminStore((state) => state.reportsHasMore);
   const filters = useAdminStore((state) => state.filters);
   const isLoading = useAdminStore((state) => state.isLoading);
   const isActionLoading = useAdminStore((state) => state.isActionLoading);
@@ -40,6 +43,7 @@ export function AdminConsoleWorkbench({
   const fetchUsers = useAdminStore((state) => state.fetchUsers);
   const fetchSetups = useAdminStore((state) => state.fetchSetups);
   const fetchAuditLog = useAdminStore((state) => state.fetchAuditLog);
+  const fetchReports = useAdminStore((state) => state.fetchReports);
   const setFilters = useAdminStore((state) => state.setFilters);
   const suspendUser = useAdminStore((state) => state.suspendUser);
   const changeUserRole = useAdminStore((state) => state.changeUserRole);
@@ -47,6 +51,7 @@ export function AdminConsoleWorkbench({
     (state) => state.toggleSetupVisibility,
   );
   const deleteSetup = useAdminStore((state) => state.deleteSetup);
+  const resolveReport = useAdminStore((state) => state.resolveReport);
 
   const [activeTab, setActiveTab] = useState<AdminTab>('users');
 
@@ -67,6 +72,8 @@ export function AdminConsoleWorkbench({
       void fetchSetups(true);
     } else if (activeTab === 'audit') {
       void fetchAuditLog(true);
+    } else if (activeTab === 'reports') {
+      void fetchReports(true);
     }
   }, [
     isElevated,
@@ -77,6 +84,7 @@ export function AdminConsoleWorkbench({
     filters.setupQuery,
     filters.setupHidden,
     filters.setupPublic,
+    filters.reportStatus,
   ]);
 
   if (!isAuthenticated) {
@@ -171,6 +179,17 @@ export function AdminConsoleWorkbench({
           >
             Audit Log
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('reports')}
+            className={`border-b-2 px-4 py-2 font-display text-sm uppercase tracking-wider transition ${
+              activeTab === 'reports'
+                ? 'border-hazard-orange text-hazard-orange font-bold'
+                : 'border-transparent text-readout-dim hover:text-readout-bright'
+            }`}
+          >
+            Reports
+          </button>
         </div>
 
         {/* Tab Filters */}
@@ -254,6 +273,25 @@ export function AdminConsoleWorkbench({
             </select>
           </div>
         )}
+
+        {activeTab === 'reports' && (
+          <div className="flex flex-wrap items-center gap-2 py-2">
+            <select
+              aria-label="Filter reports by status"
+              value={filters.reportStatus}
+              onChange={(e) =>
+                setFilters({
+                  reportStatus: e.target.value as typeof filters.reportStatus,
+                })
+              }
+              className="border border-metal-border bg-pit-black px-2 py-1 font-mono text-xs text-readout-dim focus:border-hazard-orange focus:outline-none"
+            >
+              <option value="open">Open</option>
+              <option value="actioned">Actioned</option>
+              <option value="dismissed">Dismissed</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Main Tab Views */}
@@ -292,6 +330,18 @@ export function AdminConsoleWorkbench({
           hasMore={auditLogsHasMore}
           isLoading={isLoading}
           onLoadMore={() => fetchAuditLog(false)}
+        />
+      )}
+
+      {activeTab === 'reports' && (
+        <ReportQueuePanel
+          reports={reports}
+          hasMore={reportsHasMore}
+          isLoading={isLoading}
+          isActionLoading={isActionLoading}
+          actionError={actionError}
+          onLoadMore={() => fetchReports(false)}
+          onResolve={resolveReport}
         />
       )}
     </div>

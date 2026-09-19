@@ -16,6 +16,8 @@ import {
   AdminDeleteSetupDto,
   AdminDeleteSetupSchema,
   AdminOverview,
+  AdminReportQueryDto,
+  AdminReportQuerySchema,
   AdminSetupQueryDto,
   AdminSetupQuerySchema,
   AdminSetupSummary,
@@ -28,9 +30,13 @@ import {
   ModerateUserRoleSchema,
   ModerateUserSuspensionDto,
   ModerateUserSuspensionSchema,
+  PaginatedAdminReports,
   PaginatedAdminSetups,
   PaginatedAdminUsers,
   PaginatedAuditLog,
+  ResolveReportDto,
+  ResolveReportSchema,
+  AdminReportSummary,
 } from '../../contracts/admin.contract';
 import { AuthenticatedUser } from '../../contracts/auth.contract';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -130,5 +136,24 @@ export class AdminController {
     query: AdminAuditLogQueryDto,
   ): Promise<PaginatedAuditLog> {
     return this.adminService.listAuditLog(query);
+  }
+
+  @Get('reports')
+  @Roles('admin', 'moderator')
+  listReports(
+    @Query(new ZodValidationPipe(AdminReportQuerySchema))
+    query: AdminReportQueryDto,
+  ): Promise<PaginatedAdminReports> {
+    return this.adminService.listReports(query);
+  }
+
+  @Patch('reports/:id')
+  @Roles('admin', 'moderator')
+  resolveReport(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') reportId: string,
+    @Body(new ZodValidationPipe(ResolveReportSchema)) dto: ResolveReportDto,
+  ): Promise<AdminReportSummary> {
+    return this.adminService.resolveReport(req.user, reportId, dto);
   }
 }

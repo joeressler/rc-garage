@@ -44,6 +44,12 @@ export function AdminOverviewPanel({
       indicator: 'bg-anodized-blue',
     },
     {
+      label: 'Open Reports',
+      value: overview ? overview.openReportCount : '-',
+      accent: 'text-nitromethane',
+      indicator: 'bg-nitromethane',
+    },
+    {
       label: 'Total Sheets Logged',
       value: overview ? overview.setupCount : '-',
       accent: 'text-readout-bright',
@@ -70,7 +76,7 @@ export function AdminOverviewPanel({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {stats.map((stat) => (
           <div
             key={stat.label}

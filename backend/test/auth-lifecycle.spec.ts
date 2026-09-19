@@ -12,6 +12,7 @@ import { LikeToggleResult } from '../src/contracts/feed.contract';
 import { SetupEntity } from '../src/contracts/setup.contract';
 import { VehicleEntity } from '../src/contracts/vehicle.contract';
 import { DatabaseService } from '../src/database/database.service';
+import { applyE2eHardeningEnv } from './e2e-env';
 
 interface Envelope<T> {
   success: boolean;
@@ -117,24 +118,32 @@ export async function runAuthLifecycleVerification(
     email: `life.a.${stamp}@example.com`,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `life_a_${stamp}`.slice(0, 30),
   };
   const driverB = {
     email: `life.b.${stamp}@example.com`,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `life_b_${stamp}`.slice(0, 30),
   };
   const occupier = {
     email: `life.occ.${stamp}@example.com`,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `life_occ_${stamp}`.slice(0, 30),
   };
   const lastAdmin = {
     email: `life.admin.${stamp}@example.com`,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `life_adm_${stamp}`.slice(0, 30),
   };
   const missingAgeEmail = `life.noage.${stamp}@example.com`;
@@ -160,6 +169,8 @@ export async function runAuthLifecycleVerification(
         password: 'pass1234x',
         callsign: `life_pw_${stamp}`.slice(0, 30),
         ageAttested: true,
+        acceptedLegal: true,
+        recaptchaToken: 'dev-bypass',
       },
     });
     assert(shortPass.status === 400, `9-character password should 400, got ${shortPass.status}`);
@@ -422,6 +433,7 @@ export async function runAuthLifecycleVerification(
 }
 
 async function main(): Promise<void> {
+  applyE2eHardeningEnv();
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is required');
   }

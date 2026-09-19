@@ -16,6 +16,8 @@ export const UserRegistrationSchema = z.object({
     .max(30)
     .regex(/^[a-zA-Z0-9_-]+$/, 'Callsign must be alphanumeric'),
   ageAttested: z.literal(true),
+  acceptedLegal: z.literal(true),
+  recaptchaToken: z.string().min(1),
 });
 
 export const UserLoginSchema = z.object({

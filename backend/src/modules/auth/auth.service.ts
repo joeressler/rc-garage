@@ -69,8 +69,8 @@ export class AuthService {
 
     try {
       const result = await this.database.query<UserRow>(
-        `INSERT INTO users (email, password_hash, callsign, age_attested_at)
-         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+        `INSERT INTO users (email, password_hash, callsign, age_attested_at, legal_accepted_at)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          RETURNING id, callsign, email, avatar_url, bio, role, is_suspended, created_at`,
         [email, passwordHash, dto.callsign],
       );

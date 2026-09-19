@@ -63,6 +63,7 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION:-7d}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
       APP_BASE_URL: ${APP_BASE_URL:-http://127.0.0.1:3742}
+      RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY:-}
     depends_on:
       rc-db:
         condition: service_healthy
@@ -91,6 +92,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_RECAPTCHA_SITE_KEY: ${VITE_RECAPTCHA_SITE_KEY:-}
     image: rc-frontend:prod
     container_name: rc-frontend
     restart: unless-stopped

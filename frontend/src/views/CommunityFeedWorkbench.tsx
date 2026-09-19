@@ -247,6 +247,7 @@ export function CommunityFeedWorkbench({ onRequestAuth }: CommunityFeedWorkbench
         authorCallsign={inspectedFeedItem?.author.callsign}
         onClose={handleCloseInspect}
         onRequestFork={handleOpenFork}
+        onRequestAuth={onRequestAuth}
       />
 
       <ForkToGarageModal

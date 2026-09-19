@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformResponseInterceptor } from './common/interceptors/transform-response.interceptor';
@@ -6,6 +7,14 @@ import { ZodValidationPipe } from './common/pipes/zod-validation.pipe';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+  // CSP stays off so Vite, Google Fonts, and the reCAPTCHA script origins keep loading.
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      frameguard: { action: 'sameorigin' },
+      hidePoweredBy: true,
+    }),
+  );
   app.setGlobalPrefix('api/garage');
   app.useGlobalPipes(new ZodValidationPipe());
   app.useGlobalInterceptors(new TransformResponseInterceptor());

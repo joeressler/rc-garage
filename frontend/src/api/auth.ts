@@ -52,6 +52,8 @@ export function apiRegister(payload: {
   password: string;
   callsign: string;
   ageAttested: true;
+  acceptedLegal: true;
+  recaptchaToken: string;
 }): Promise<AuthTokenResponse> {
   return apiJson<AuthTokenResponse>('/api/garage/auth/register', {
     method: 'POST',

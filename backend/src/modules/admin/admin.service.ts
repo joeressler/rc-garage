@@ -1,13 +1,19 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { PoolClient } from 'pg';
 import {
   AdminAuditLogQueryDto,
   AdminDeleteSetupDto,
   AdminOverview,
+  AdminReportQueryDto,
+  AdminReportStatus,
+  AdminReportSummary,
+  AdminReportTargetType,
   AdminSetupQueryDto,
   AdminSetupSummary,
   AdminUserQueryDto,
@@ -16,9 +22,11 @@ import {
   ModerateUserRoleDto,
   ModerateUserSuspensionDto,
   ModerationAuditLogEntry,
+  PaginatedAdminReports,
   PaginatedAdminSetups,
   PaginatedAdminUsers,
   PaginatedAuditLog,
+  ResolveReportDto,
 } from '../../contracts/admin.contract';
 import { AuthenticatedUser, UserRole } from '../../contracts/auth.contract';
 import { DatabaseService } from '../../database/database.service';
@@ -75,6 +83,21 @@ interface AuditDbRow {
   created_at: Date | string;
 }
 
+interface ReportDbRow {
+  id: string;
+  reporter_user_id: string;
+  reporter_callsign: string;
+  target_type: AdminReportTargetType;
+  target_id: string;
+  target_label: string | null;
+  reason_code: string;
+  details: string | null;
+  status: AdminReportStatus;
+  created_at: Date | string;
+  resolved_at: Date | string | null;
+  resolved_by_user_id: string | null;
+}
+
 /**
  * Purpose: execute admin console operations, enforce operator safety checks, and record an immutable audit trail.
  */
@@ -90,6 +113,7 @@ export class AdminService {
       hidden_setup_count: string | number;
       suspended_user_count: string | number;
       likes_24h: string | number;
+      open_report_count: string | number;
     }>(`
       SELECT
         (SELECT COUNT(*)::int FROM users) AS user_count,
@@ -97,7 +121,8 @@ export class AdminService {
         (SELECT COUNT(*)::int FROM setups WHERE is_public = TRUE) AS public_setup_count,
         (SELECT COUNT(*)::int FROM setups WHERE is_hidden = TRUE) AS hidden_setup_count,
         (SELECT COUNT(*)::int FROM users WHERE is_suspended = TRUE) AS suspended_user_count,
-        (SELECT COUNT(*)::int FROM setup_likes WHERE created_at >= NOW() - INTERVAL '24 hours') AS likes_24h
+        (SELECT COUNT(*)::int FROM setup_likes WHERE created_at >= NOW() - INTERVAL '24 hours') AS likes_24h,
+        (SELECT COUNT(*)::int FROM content_reports WHERE status = 'open') AS open_report_count
     `);
 
     const row = result.rows[0];
@@ -108,6 +133,7 @@ export class AdminService {
       hiddenSetupCount: Number(row?.hidden_setup_count ?? 0),
       suspendedUserCount: Number(row?.suspended_user_count ?? 0),
       likes24h: Number(row?.likes_24h ?? 0),
+      openReportCount: Number(row?.open_report_count ?? 0),
     };
   }
 
@@ -205,37 +231,11 @@ export class AdminService {
       }
 
       if (dto.suspend) {
-        if (target.role === 'admin') {
-          const adminCountRes = await client.query<{ count: string | number }>(
-            `SELECT COUNT(*)::int as count FROM users WHERE role = 'admin' AND is_suspended = FALSE`,
-          );
-          const activeAdmins = Number(adminCountRes.rows[0]?.count ?? 0);
-          if (activeAdmins <= 1) {
-            throw new ForbiddenException(
-              'Cannot suspend the last remaining active admin account',
-            );
-          }
-        }
-
-        await client.query(
-          `UPDATE users
-           SET is_suspended = TRUE,
-               suspended_at = CURRENT_TIMESTAMP,
-               suspension_reason = $1,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE id = $2`,
-          [dto.reason ?? null, targetUserId],
-        );
-
-        await client.query(
-          `INSERT INTO moderation_audit_log (actor_user_id, action, target_type, target_id, reason, metadata)
-           VALUES ($1, 'user.suspend', 'user', $2, $3, $4)`,
-          [
-            actor.id,
-            targetUserId,
-            dto.reason ?? null,
-            JSON.stringify({ targetCallsign: target.callsign, targetRole: target.role }),
-          ],
+        await this.suspendUserOnClient(
+          client,
+          actor,
+          targetUserId,
+          dto.reason ?? null,
         );
       } else {
         await client.query(
@@ -490,25 +490,11 @@ export class AdminService {
       }
 
       if (dto.hide) {
-        await client.query(
-          `UPDATE setups
-           SET is_hidden = TRUE,
-               hidden_at = CURRENT_TIMESTAMP,
-               hidden_reason = $1,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE id = $2`,
-          [dto.reason ?? null, setupId],
-        );
-
-        await client.query(
-          `INSERT INTO moderation_audit_log (actor_user_id, action, target_type, target_id, reason, metadata)
-           VALUES ($1, 'setup.hide', 'setup', $2, $3, $4)`,
-          [
-            actor.id,
-            setupId,
-            dto.reason ?? null,
-            JSON.stringify({ setupTitle: setup.title }),
-          ],
+        await this.hideSetupOnClient(
+          client,
+          actor,
+          setupId,
+          dto.reason ?? null,
         );
       } else {
         await client.query(
@@ -620,6 +606,201 @@ export class AdminService {
     }
   }
 
+  async listReports(query: AdminReportQueryDto): Promise<PaginatedAdminReports> {
+    const params: unknown[] = [query.status];
+    const where: string[] = ['r.status = $1'];
+
+    if (query.cursor) {
+      const cursorRes = await this.database.query<{
+        id: string;
+        created_at: Date;
+      }>('SELECT id, created_at FROM content_reports WHERE id = $1', [
+        query.cursor,
+      ]);
+      const cursorRow = cursorRes.rows[0];
+      if (!cursorRow) {
+        throw new BadRequestException('Invalid report cursor');
+      }
+      params.push(cursorRow.created_at, cursorRow.id);
+      where.push(
+        `(r.created_at, r.id) < ($${params.length - 1}, $${params.length})`,
+      );
+    }
+
+    const fetchLimit = query.limit + 1;
+    params.push(fetchLimit);
+
+    const result = await this.database.query<ReportDbRow>(
+      `SELECT
+         r.id,
+         r.reporter_user_id,
+         reporter.callsign AS reporter_callsign,
+         r.target_type,
+         r.target_id,
+         CASE
+           WHEN r.target_type = 'setup' THEN COALESCE(s.title, r.target_id::text)
+           WHEN r.target_type = 'user' THEN COALESCE(target_user.callsign, r.target_id::text)
+           ELSE r.target_id::text
+         END AS target_label,
+         r.reason_code,
+         r.details,
+         r.status,
+         r.created_at,
+         r.resolved_at,
+         r.resolved_by_user_id
+       FROM content_reports r
+       JOIN users reporter ON reporter.id = r.reporter_user_id
+       LEFT JOIN setups s ON r.target_type = 'setup' AND s.id = r.target_id
+       LEFT JOIN users target_user ON r.target_type = 'user' AND target_user.id = r.target_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY r.created_at DESC, r.id DESC
+       LIMIT $${params.length}`,
+      params,
+    );
+
+    const hasMore = result.rows.length > query.limit;
+    const pageRows = hasMore ? result.rows.slice(0, query.limit) : result.rows;
+    const last = pageRows[pageRows.length - 1];
+
+    return {
+      items: pageRows.map((r) => this.toReportSummary(r)),
+      nextCursor: hasMore && last ? last.id : null,
+      hasMore,
+    };
+  }
+
+  async resolveReport(
+    actor: AuthenticatedUser,
+    reportId: string,
+    dto: ResolveReportDto,
+  ): Promise<AdminReportSummary> {
+    const client = await this.database.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const reportRes = await client.query<{
+        id: string;
+        target_type: AdminReportTargetType;
+        target_id: string;
+        status: AdminReportStatus;
+      }>(
+        `SELECT id, target_type, target_id, status
+         FROM content_reports
+         WHERE id = $1
+         FOR UPDATE`,
+        [reportId],
+      );
+      const report = reportRes.rows[0];
+      if (!report) {
+        throw new NotFoundException('Report not found');
+      }
+      if (report.status !== 'open') {
+        throw new ConflictException('Report is already resolved');
+      }
+      if (report.target_type === 'comment') {
+        throw new BadRequestException('Comment reports are not available yet');
+      }
+
+      const applyActions = dto.status === 'actioned';
+      if (applyActions && dto.hideSetup) {
+        if (report.target_type !== 'setup') {
+          throw new BadRequestException(
+            'hideSetup is only valid for setup reports',
+          );
+        }
+        await this.hideSetupOnClient(
+          client,
+          actor,
+          report.target_id,
+          dto.reason,
+          { reportId: report.id },
+        );
+      }
+
+      if (applyActions && dto.suspendUser) {
+        let userId = report.target_id;
+        if (report.target_type === 'setup') {
+          const setupRes = await client.query<{ user_id: string }>(
+            'SELECT user_id FROM setups WHERE id = $1',
+            [report.target_id],
+          );
+          const authorId = setupRes.rows[0]?.user_id;
+          if (!authorId) {
+            throw new NotFoundException('Setup not found');
+          }
+          userId = authorId;
+        }
+        await this.suspendUserOnClient(client, actor, userId, dto.reason, {
+          reportId: report.id,
+        });
+      }
+
+      await client.query(
+        `UPDATE content_reports
+         SET status = $1,
+             resolved_at = CURRENT_TIMESTAMP,
+             resolved_by_user_id = $2
+         WHERE id = $3`,
+        [dto.status, actor.id, reportId],
+      );
+
+      await client.query(
+        `INSERT INTO moderation_audit_log (actor_user_id, action, target_type, target_id, reason, metadata)
+         VALUES ($1, 'report.resolve', $2, $3, $4, $5)`,
+        [
+          actor.id,
+          report.target_type,
+          report.target_id,
+          dto.reason,
+          JSON.stringify({
+            reportId: report.id,
+            status: dto.status,
+            hideSetup: Boolean(dto.hideSetup),
+            suspendUser: Boolean(dto.suspendUser),
+          }),
+        ],
+      );
+
+      const updatedRes = await client.query<ReportDbRow>(
+        `SELECT
+           r.id,
+           r.reporter_user_id,
+           reporter.callsign AS reporter_callsign,
+           r.target_type,
+           r.target_id,
+           CASE
+             WHEN r.target_type = 'setup' THEN COALESCE(s.title, r.target_id::text)
+             WHEN r.target_type = 'user' THEN COALESCE(target_user.callsign, r.target_id::text)
+             ELSE r.target_id::text
+           END AS target_label,
+           r.reason_code,
+           r.details,
+           r.status,
+           r.created_at,
+           r.resolved_at,
+           r.resolved_by_user_id
+         FROM content_reports r
+         JOIN users reporter ON reporter.id = r.reporter_user_id
+         LEFT JOIN setups s ON r.target_type = 'setup' AND s.id = r.target_id
+         LEFT JOIN users target_user ON r.target_type = 'user' AND target_user.id = r.target_id
+         WHERE r.id = $1`,
+        [reportId],
+      );
+      const updated = updatedRes.rows[0];
+      if (!updated) {
+        throw new NotFoundException('Report not found');
+      }
+
+      await client.query('COMMIT');
+      return this.toReportSummary(updated);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   async listAuditLog(query: AdminAuditLogQueryDto): Promise<PaginatedAuditLog> {
     const params: unknown[] = [];
     const where: string[] = ['1=1'];
@@ -673,6 +854,103 @@ export class AdminService {
       nextCursor: hasMore && last ? last.id : null,
       hasMore,
     };
+  }
+
+  private async hideSetupOnClient(
+    client: PoolClient,
+    actor: AuthenticatedUser,
+    setupId: string,
+    reason: string | null,
+    extraMetadata: Record<string, unknown> = {},
+  ): Promise<void> {
+    const setupRes = await client.query<{
+      id: string;
+      title: string;
+    }>('SELECT id, title FROM setups WHERE id = $1 FOR UPDATE', [setupId]);
+    const setup = setupRes.rows[0];
+    if (!setup) {
+      throw new NotFoundException('Setup not found');
+    }
+
+    await client.query(
+      `UPDATE setups
+       SET is_hidden = TRUE,
+           hidden_at = CURRENT_TIMESTAMP,
+           hidden_reason = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [reason, setupId],
+    );
+
+    await client.query(
+      `INSERT INTO moderation_audit_log (actor_user_id, action, target_type, target_id, reason, metadata)
+       VALUES ($1, 'setup.hide', 'setup', $2, $3, $4)`,
+      [
+        actor.id,
+        setupId,
+        reason,
+        JSON.stringify({ setupTitle: setup.title, ...extraMetadata }),
+      ],
+    );
+  }
+
+  private async suspendUserOnClient(
+    client: PoolClient,
+    actor: AuthenticatedUser,
+    targetUserId: string,
+    reason: string | null,
+    extraMetadata: Record<string, unknown> = {},
+  ): Promise<void> {
+    const targetRes = await client.query<{
+      id: string;
+      callsign: string;
+      role: UserRole;
+      is_suspended: boolean;
+    }>(
+      'SELECT id, callsign, role, is_suspended FROM users WHERE id = $1 FOR UPDATE',
+      [targetUserId],
+    );
+    const target = targetRes.rows[0];
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (target.role === 'admin') {
+      const adminCountRes = await client.query<{ count: string | number }>(
+        `SELECT COUNT(*)::int as count FROM users WHERE role = 'admin' AND is_suspended = FALSE`,
+      );
+      const activeAdmins = Number(adminCountRes.rows[0]?.count ?? 0);
+      if (activeAdmins <= 1) {
+        throw new ForbiddenException(
+          'Cannot suspend the last remaining active admin account',
+        );
+      }
+    }
+
+    await client.query(
+      `UPDATE users
+       SET is_suspended = TRUE,
+           suspended_at = CURRENT_TIMESTAMP,
+           suspension_reason = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [reason, targetUserId],
+    );
+
+    await client.query(
+      `INSERT INTO moderation_audit_log (actor_user_id, action, target_type, target_id, reason, metadata)
+       VALUES ($1, 'user.suspend', 'user', $2, $3, $4)`,
+      [
+        actor.id,
+        targetUserId,
+        reason,
+        JSON.stringify({
+          targetCallsign: target.callsign,
+          targetRole: target.role,
+          ...extraMetadata,
+        }),
+      ],
+    );
   }
 
   private toUserSummary(r: UserDbRow): AdminUserSummary {
@@ -744,6 +1022,26 @@ export class AdminService {
         r.created_at instanceof Date
           ? r.created_at.toISOString()
           : new Date(r.created_at).toISOString(),
+    };
+  }
+
+  private toReportSummary(r: ReportDbRow): AdminReportSummary {
+    return {
+      id: r.id,
+      reporterUserId: r.reporter_user_id,
+      reporterCallsign: r.reporter_callsign,
+      targetType: r.target_type,
+      targetId: r.target_id,
+      targetLabel: r.target_label ?? r.target_id,
+      reasonCode: r.reason_code,
+      details: r.details,
+      status: r.status,
+      createdAt:
+        r.created_at instanceof Date
+          ? r.created_at.toISOString()
+          : new Date(r.created_at).toISOString(),
+      resolvedAt: r.resolved_at ? new Date(r.resolved_at).toISOString() : null,
+      resolvedByUserId: r.resolved_by_user_id,
     };
   }
 }

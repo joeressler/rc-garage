@@ -8,6 +8,7 @@ import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter
 import { TransformResponseInterceptor } from '../src/common/interceptors/transform-response.interceptor';
 import { ZodValidationPipe } from '../src/common/pipes/zod-validation.pipe';
 import { DatabaseService } from '../src/database/database.service';
+import { applyE2eHardeningEnv } from './e2e-env';
 
 interface Envelope<T> {
   success: boolean;
@@ -26,6 +27,7 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 async function main(): Promise<void> {
+  applyE2eHardeningEnv();
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is required');
   }
@@ -49,12 +51,16 @@ async function main(): Promise<void> {
     email: `crawler.a.${stamp}@example.com`,
     password: 'pit-mat-pass-1',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `crawler_a_${stamp}`.slice(0, 30),
   };
   const userB = {
     email: `crawler.b.${stamp}@example.com`,
     password: 'pit-mat-pass-2',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `crawler_b_${stamp}`.slice(0, 30),
   };
 

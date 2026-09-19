@@ -18,6 +18,7 @@ const OVERVIEW = {
   hiddenSetupCount: 2,
   suspendedUserCount: 1,
   likes24h: 7,
+  openReportCount: 3,
 };
 
 const USER = {
@@ -163,6 +164,74 @@ describe('useAdminStore', () => {
 
     expect(useAdminStore.getState().setups[0]?.isHidden).toBe(true);
     expect(useAdminStore.getState().setups[0]?.hiddenReason).toBe('Spam content');
+  });
+
+  it('lists open reports and refreshes overview after resolve', async () => {
+    const openReport = {
+      id: 'report-1',
+      reporterUserId: 'user-uuid-2',
+      reporterCallsign: 'Watchdog',
+      targetType: 'setup' as const,
+      targetId: 'setup-uuid-1',
+      targetLabel: 'Abusive Setup',
+      reasonCode: 'spam',
+      details: null,
+      status: 'open' as const,
+      createdAt: '2026-09-19T00:00:00.000Z',
+      resolvedAt: null,
+      resolvedByUserId: null,
+    };
+    const actioned = {
+      ...openReport,
+      status: 'actioned' as const,
+      resolvedAt: '2026-09-19T01:00:00.000Z',
+      resolvedByUserId: 'admin-uuid',
+    };
+
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = String(init?.method ?? 'GET').toUpperCase();
+      if (url.includes('/admin/reports/') && method === 'PATCH') {
+        return new Response(JSON.stringify(envelope(actioned)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.includes('/admin/reports')) {
+        return new Response(
+          JSON.stringify(
+            envelope({ items: [openReport], nextCursor: null, hasMore: false }),
+          ),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.includes('/admin/overview')) {
+        return new Response(
+          JSON.stringify(envelope({ ...OVERVIEW, openReportCount: 2 })),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.includes('/admin/audit-log')) {
+        return new Response(
+          JSON.stringify(envelope({ items: [], nextCursor: null, hasMore: false })),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    await useAdminStore.getState().fetchReports(true);
+    expect(useAdminStore.getState().reports).toEqual([openReport]);
+
+    await useAdminStore.getState().resolveReport('report-1', {
+      status: 'actioned',
+      reason: 'Hide spam sheet',
+      hideSetup: true,
+    });
+    expect(useAdminStore.getState().reports[0]?.status).toBe('actioned');
+    await vi.waitFor(() => {
+      expect(useAdminStore.getState().overview?.openReportCount).toBe(2);
+    });
   });
 
   it('deletes a setup sheet and removes from state', async () => {

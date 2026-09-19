@@ -16,7 +16,11 @@ async function main(): Promise<void> {
   );
 }
 
-if (require.main === module) {
+const authLifecycleEntry = (process.argv[1] ?? '').replace(/\\/g, '/');
+if (
+  authLifecycleEntry.endsWith('auth-lifecycle.spec.ts') ||
+  authLifecycleEntry.endsWith('auth-lifecycle.spec.js')
+) {
   main().catch((error) => {
     console.error('Milestone 15 Verification Failed:', error);
     process.exit(1);

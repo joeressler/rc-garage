@@ -80,6 +80,23 @@ export const AdminAuditLogQuerySchema = z.object({
 
 export type AdminAuditLogQueryDto = z.infer<typeof AdminAuditLogQuerySchema>;
 
+export const AdminReportQuerySchema = z.object({
+  cursor: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  status: z.enum(['open', 'actioned', 'dismissed']).default('open'),
+});
+
+export type AdminReportQueryDto = z.infer<typeof AdminReportQuerySchema>;
+
+export const ResolveReportSchema = z.object({
+  status: z.enum(['actioned', 'dismissed']),
+  reason: z.string().min(3).max(500),
+  hideSetup: z.boolean().optional(),
+  suspendUser: z.boolean().optional(),
+});
+
+export type ResolveReportDto = z.infer<typeof ResolveReportSchema>;
+
 export interface AdminOverview {
   userCount: number;
   setupCount: number;
@@ -87,6 +104,7 @@ export interface AdminOverview {
   hiddenSetupCount: number;
   suspendedUserCount: number;
   likes24h: number;
+  openReportCount: number;
 }
 
 export interface AdminUserSummary {
@@ -155,6 +173,30 @@ export interface ModerationAuditLogEntry {
 
 export interface PaginatedAuditLog {
   items: ModerationAuditLogEntry[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export type AdminReportStatus = 'open' | 'actioned' | 'dismissed';
+export type AdminReportTargetType = 'setup' | 'user' | 'comment';
+
+export interface AdminReportSummary {
+  id: string;
+  reporterUserId: string;
+  reporterCallsign: string;
+  targetType: AdminReportTargetType;
+  targetId: string;
+  targetLabel: string;
+  reasonCode: string;
+  details: string | null;
+  status: AdminReportStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+  resolvedByUserId: string | null;
+}
+
+export interface PaginatedAdminReports {
+  items: AdminReportSummary[];
   nextCursor: string | null;
   hasMore: boolean;
 }

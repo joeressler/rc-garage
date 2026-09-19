@@ -29,6 +29,7 @@ const OVERVIEW: AdminOverview = {
   hiddenSetupCount: 5,
   suspendedUserCount: 2,
   likes24h: 18,
+  openReportCount: 4,
 };
 
 const USER: AdminUserSummary = {
@@ -117,6 +118,17 @@ describe('AdminConsoleWorkbench', () => {
           );
         }
         if (url.includes('/admin/audit-log')) {
+          return Promise.resolve(
+            jsonResponse(
+              envelope({
+                items: [],
+                nextCursor: null,
+                hasMore: false,
+              }),
+            ),
+          );
+        }
+        if (url.includes('/admin/reports')) {
           return Promise.resolve(
             jsonResponse(
               envelope({

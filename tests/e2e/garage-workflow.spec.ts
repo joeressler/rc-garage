@@ -126,6 +126,8 @@ export async function runGarageWorkflowVerification(baseUrl: string, database?: 
     email: `trailboss.${stamp}@example.com`,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `TrailBoss_${stamp}`.slice(0, 30),
   };
 
@@ -133,6 +135,8 @@ export async function runGarageWorkflowVerification(baseUrl: string, database?: 
     email: `rockhound.${stamp}@example.com`,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `RockHound_${stamp}`.slice(0, 30),
   };
 
@@ -325,7 +329,8 @@ async function main(): Promise<void> {
   }
 }
 
-if (require.main === module) {
+const workflowEntry = (process.argv[1] ?? '').replace(/\\/g, '/');
+if (workflowEntry.endsWith('garage-workflow.spec.ts') || workflowEntry.endsWith('garage-workflow.spec.js')) {
   main().catch((err) => {
     console.error('Integration Spec Failed:', err);
     process.exit(1);

@@ -10,6 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import {
   AccountDeletedResult,
@@ -34,6 +35,7 @@ import {
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RecaptchaGuard } from './guards/recaptcha.guard';
 
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedUser;
@@ -44,6 +46,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @UseGuards(RecaptchaGuard)
   register(
     @Body(new ZodValidationPipe(UserRegistrationSchema))
     dto: UserRegistrationDto,
@@ -52,6 +56,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   login(
     @Body(new ZodValidationPipe(UserLoginSchema)) dto: UserLoginDto,

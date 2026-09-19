@@ -9,6 +9,7 @@ import { GarageFleetView } from './views/GarageFleetView';
 import { SetupClipboardView } from './views/SetupClipboardView';
 import { StickersWorkbenchView } from './views/StickersWorkbenchView';
 import { AdminConsoleWorkbench } from './views/AdminConsoleWorkbench';
+import { LegalDocumentView } from './views/LegalDocumentView';
 
 /**
  * Purpose: register pit-mat workbench drawers, including QR slug inspection over the community feed.
@@ -45,6 +46,9 @@ export function App() {
           <Route path="/s/:slug" element={<CommunityFeedWorkbench onRequestAuth={openAuth} />} />
           <Route path="/stickers" element={<StickersWorkbenchView onRequestAuth={openAuth} />} />
           <Route path="/admin" element={<AdminConsoleWorkbench onRequestAuth={openAuth} />} />
+          <Route path="/legal/terms" element={<LegalDocumentView />} />
+          <Route path="/legal/privacy" element={<LegalDocumentView />} />
+          <Route path="/legal/guidelines" element={<LegalDocumentView />} />
           <Route path="*" element={<Navigate to="/garage" replace />} />
         </Route>
       </Routes>

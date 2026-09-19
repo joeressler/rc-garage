@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
+import { RecaptchaGuard } from './guards/recaptcha.guard';
 import { JwtStrategy } from './jwt.strategy';
 
 @Module({
@@ -28,7 +29,13 @@ import { JwtStrategy } from './jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, OptionalJwtAuthGuard],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    JwtAuthGuard,
+    OptionalJwtAuthGuard,
+    RecaptchaGuard,
+  ],
   exports: [JwtAuthGuard, OptionalJwtAuthGuard, JwtModule, PassportModule],
 })
 export class AuthModule {}

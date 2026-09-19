@@ -9,6 +9,7 @@ import { TransformResponseInterceptor } from '../src/common/interceptors/transfo
 import { ZodValidationPipe } from '../src/common/pipes/zod-validation.pipe';
 import { DatabaseService } from '../src/database/database.service';
 import { SetupSettings } from '../src/contracts/setup.contract';
+import { applyE2eHardeningEnv } from './e2e-env';
 import {
   applyDerivedTelemetry,
   calculateCogBias,
@@ -99,6 +100,7 @@ function buildSettings(
 }
 
 async function main(): Promise<void> {
+  applyE2eHardeningEnv();
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is required');
   }
@@ -122,12 +124,16 @@ async function main(): Promise<void> {
     email: `crawler.a.${stamp}@example.com`,
     password: 'pit-mat-pass-1',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `setup_a_${stamp}`.slice(0, 30),
   };
   const userB = {
     email: `crawler.b.${stamp}@example.com`,
     password: 'pit-mat-pass-2',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `setup_b_${stamp}`.slice(0, 30),
   };
 

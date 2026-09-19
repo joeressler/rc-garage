@@ -15,6 +15,8 @@ COPY tsconfig.json tsconfig.node.json vite.config.ts tailwind.config.js postcss.
 COPY src/ ./src/
 COPY public/ ./public/
 
+ARG VITE_RECAPTCHA_SITE_KEY=
+ENV VITE_RECAPTCHA_SITE_KEY=$VITE_RECAPTCHA_SITE_KEY
 ENV NODE_ENV=production
 RUN npm run build
 

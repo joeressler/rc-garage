@@ -19,6 +19,7 @@ CREATE TABLE users (
     suspended_at TIMESTAMP WITH TIME ZONE,
     suspension_reason VARCHAR(500),
     age_attested_at TIMESTAMP WITH TIME ZONE,
+    legal_accepted_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT users_callsign_format CHECK (callsign ~ '^[a-zA-Z0-9_-]+$')
@@ -123,3 +124,23 @@ CREATE TABLE moderation_audit_log (
 
 CREATE INDEX idx_moderation_audit_created ON moderation_audit_log(created_at DESC);
 CREATE INDEX idx_moderation_audit_target ON moderation_audit_log(target_type, target_id);
+
+-- -----------------------------------------------------------------------------
+-- Content Reports (driver-initiated queue; comment reserved for Milestone 19)
+-- -----------------------------------------------------------------------------
+CREATE TABLE content_reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reporter_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('setup', 'user', 'comment')),
+    target_id UUID NOT NULL,
+    reason_code VARCHAR(40) NOT NULL,
+    details VARCHAR(500),
+    status VARCHAR(20) NOT NULL DEFAULT 'open'
+        CHECK (status IN ('open', 'actioned', 'dismissed')),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    resolved_at TIMESTAMPTZ,
+    resolved_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_content_reports_open ON content_reports (created_at DESC) WHERE status = 'open';
+CREATE INDEX idx_content_reports_target ON content_reports (target_type, target_id);

@@ -16,4 +16,7 @@ coverage/
 # Docker and OS artifacts
 *.pid
 
+# Local PostgreSQL dumps from scripts/backup-pg.sh / backup-pg.ps1
+backups/
+
 .cursor/

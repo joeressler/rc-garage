@@ -11,6 +11,7 @@ import { TransformResponseInterceptor } from '../src/common/interceptors/transfo
 import { ZodValidationPipe } from '../src/common/pipes/zod-validation.pipe';
 import { PublicInspectionSheet } from '../src/contracts/qr.contract';
 import { DatabaseService } from '../src/database/database.service';
+import { applyE2eHardeningEnv } from './e2e-env';
 
 interface Envelope<T> {
   success: boolean;
@@ -77,6 +78,7 @@ function buildSettings() {
 }
 
 async function main(): Promise<void> {
+  applyE2eHardeningEnv();
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is required');
   }
@@ -104,6 +106,8 @@ async function main(): Promise<void> {
     email: `qr.owner.${stamp}@example.com`,
     password: 'pit-mat-pass-1',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `qr_owner_${stamp}`.slice(0, 30),
   };
 

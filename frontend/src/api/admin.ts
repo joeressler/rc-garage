@@ -10,6 +10,7 @@ export interface AdminOverview {
   hiddenSetupCount: number;
   suspendedUserCount: number;
   likes24h: number;
+  openReportCount: number;
 }
 
 export interface AdminUserSummary {
@@ -80,6 +81,36 @@ export interface PaginatedAuditLog {
   items: ModerationAuditLogEntry[];
   nextCursor: string | null;
   hasMore: boolean;
+}
+
+export type AdminReportStatus = 'open' | 'actioned' | 'dismissed';
+export type AdminReportTargetType = 'setup' | 'user' | 'comment';
+
+export interface AdminReportSummary {
+  id: string;
+  reporterUserId: string;
+  reporterCallsign: string;
+  targetType: AdminReportTargetType;
+  targetId: string;
+  targetLabel: string;
+  reasonCode: string;
+  details: string | null;
+  status: AdminReportStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+  resolvedByUserId: string | null;
+}
+
+export interface PaginatedAdminReports {
+  items: AdminReportSummary[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface AdminReportQueryOptions {
+  cursor?: string;
+  limit?: number;
+  status?: AdminReportStatus;
 }
 
 export interface AdminUserQueryOptions {
@@ -231,4 +262,40 @@ export function apiGetAdminAuditLog(
       token,
     },
   );
+}
+
+export function apiGetAdminReports(
+  options: AdminReportQueryOptions = {},
+  token: string,
+): Promise<PaginatedAdminReports> {
+  const query = new URLSearchParams();
+  if (options.cursor) query.set('cursor', options.cursor);
+  if (options.limit !== undefined) query.set('limit', String(options.limit));
+  if (options.status) query.set('status', options.status);
+
+  const qs = query.toString();
+  return apiJson<PaginatedAdminReports>(
+    `/api/garage/admin/reports${qs ? `?${qs}` : ''}`,
+    {
+      method: 'GET',
+      token,
+    },
+  );
+}
+
+export function apiResolveAdminReport(
+  reportId: string,
+  payload: {
+    status: 'actioned' | 'dismissed';
+    reason: string;
+    hideSetup?: boolean;
+    suspendUser?: boolean;
+  },
+  token: string,
+): Promise<AdminReportSummary> {
+  return apiJson<AdminReportSummary>(`/api/garage/admin/reports/${reportId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload),
+  });
 }

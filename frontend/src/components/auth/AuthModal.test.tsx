@@ -85,6 +85,31 @@ describe('AuthModal', () => {
       screen.getByText(/Confirm you are 13 years of age or older/i),
     ).toBeInTheDocument();
     expect(fetch).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/I agree to the/i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /^Terms$/i }).length).toBeGreaterThan(0);
+  });
+
+  it('requires the legal checkbox after age attestation', () => {
+    render(<AuthModal open onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /^register$/i }));
+    fireEvent.change(screen.getByRole('textbox', { name: /^callsign$/i }), {
+      target: { value: 'TrailBoss' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: /^email$/i }), {
+      target: { value: 'trailboss@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Password', { selector: 'input' }), {
+      target: { value: 'password123' },
+    });
+    fireEvent.click(screen.getByRole('checkbox', { name: /13 years of age/i }));
+    fireEvent.click(screen.getByRole('button', { name: /create driver/i }));
+
+    expect(
+      screen.getByText(/Agree to the Terms, Privacy Policy, and Community Guidelines/i),
+    ).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('registers with ageAttested true after the checkbox is confirmed', async () => {
@@ -114,7 +139,8 @@ describe('AuthModal', () => {
     fireEvent.change(screen.getByLabelText('Password', { selector: 'input' }), {
       target: { value: 'password123' },
     });
-    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: /13 years of age/i }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /I agree to the/i }));
     fireEvent.submit(screen.getByRole('button', { name: /create driver/i }).closest('form')!);
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
@@ -127,6 +153,8 @@ describe('AuthModal', () => {
       password: 'password123',
       callsign: 'TrailBoss',
       ageAttested: true,
+      acceptedLegal: true,
+      recaptchaToken: 'dev-bypass',
     });
   });
 });

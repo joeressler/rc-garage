@@ -14,6 +14,7 @@ const STATUS_ERROR_NAMES: Record<number, string> = {
   [HttpStatus.FORBIDDEN]: 'Forbidden',
   [HttpStatus.NOT_FOUND]: 'Not Found',
   [HttpStatus.CONFLICT]: 'Conflict',
+  [HttpStatus.TOO_MANY_REQUESTS]: 'Too Many Requests',
   [HttpStatus.UNPROCESSABLE_ENTITY]: 'Unprocessable Entity',
   [HttpStatus.INTERNAL_SERVER_ERROR]: 'Internal Server Error',
 };

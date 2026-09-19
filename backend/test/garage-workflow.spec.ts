@@ -30,6 +30,7 @@ import { VehicleEntity } from '../src/contracts/vehicle.contract';
 import { DatabaseService } from '../src/database/database.service';
 import { computeSetupDiff } from '../src/modules/setups/utils/diff-engine.util';
 import { SetupDiffEntry } from '../src/contracts/fork.contract';
+import { applyE2eHardeningEnv } from './e2e-env';
 
 interface Envelope<T> {
   success: boolean;
@@ -140,6 +141,8 @@ export async function runGarageWorkflowVerification(baseUrl: string, database: D
     email: `trailboss.${stamp}@example.com`,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `TrailBoss_${stamp}`.slice(0, 30),
   };
 
@@ -147,6 +150,8 @@ export async function runGarageWorkflowVerification(baseUrl: string, database: D
     email: `rockhound.${stamp}@example.com`,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `RockHound_${stamp}`.slice(0, 30),
   };
 
@@ -332,6 +337,7 @@ export function verifyDockerComposeResourceBounds(): void {
  * Runner entrypoint if executed via ts-node directly
  */
 async function runStandalone(): Promise<void> {
+  applyE2eHardeningEnv();
   if (!process.env.DATABASE_URL) {
     console.log('Skipping database-dependent E2E execution (DATABASE_URL not set). Running static compose & diff validation.');
     verifyDockerComposeResourceBounds();

@@ -138,6 +138,7 @@ describe('SetupInspectOverlay', () => {
         authorCallsign="TrailBoss"
         onClose={onClose}
         onRequestFork={onRequestFork}
+        onRequestAuth={vi.fn()}
       />,
     );
 
@@ -159,6 +160,7 @@ describe('SetupInspectOverlay', () => {
         slug={SETUP.qrSlug}
         onClose={vi.fn()}
         onRequestFork={vi.fn()}
+        onRequestAuth={vi.fn()}
       />,
     );
 
@@ -182,6 +184,7 @@ describe('SetupInspectOverlay', () => {
         slug={SETUP.qrSlug}
         onClose={onClose}
         onRequestFork={onRequestFork}
+        onRequestAuth={vi.fn()}
       />,
     );
 
@@ -205,6 +208,7 @@ describe('SetupInspectOverlay', () => {
         slug="deadslug12"
         onClose={onClose}
         onRequestFork={vi.fn()}
+        onRequestAuth={vi.fn()}
       />,
     );
 

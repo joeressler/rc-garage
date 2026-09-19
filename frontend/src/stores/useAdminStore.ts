@@ -3,12 +3,17 @@ import {
   apiDeleteAdminSetup,
   apiGetAdminAuditLog,
   apiGetAdminOverview,
+  apiGetAdminReports,
   apiGetAdminSetups,
   apiGetAdminUsers,
   apiModerateSetupVisibility,
   apiModerateUserRole,
   apiModerateUserSuspension,
+  apiResolveAdminReport,
   type AdminOverview,
+  type AdminReportQueryOptions,
+  type AdminReportStatus,
+  type AdminReportSummary,
   type AdminSetupQueryOptions,
   type AdminSetupSummary,
   type AdminUserQueryOptions,
@@ -26,6 +31,7 @@ export interface AdminFilters {
   setupQuery: string;
   setupHidden?: boolean;
   setupPublic?: boolean;
+  reportStatus: AdminReportStatus;
 }
 
 export interface AdminStoreState {
@@ -39,6 +45,9 @@ export interface AdminStoreState {
   auditLogs: ModerationAuditLogEntry[];
   auditLogsCursor: string | null;
   auditLogsHasMore: boolean;
+  reports: AdminReportSummary[];
+  reportsCursor: string | null;
+  reportsHasMore: boolean;
 
   filters: AdminFilters;
   isLoading: boolean;
@@ -51,6 +60,16 @@ export interface AdminStoreState {
   fetchUsers: (reset?: boolean) => Promise<void>;
   fetchSetups: (reset?: boolean) => Promise<void>;
   fetchAuditLog: (reset?: boolean) => Promise<void>;
+  fetchReports: (reset?: boolean) => Promise<void>;
+  resolveReport: (
+    reportId: string,
+    payload: {
+      status: 'actioned' | 'dismissed';
+      reason: string;
+      hideSetup?: boolean;
+      suspendUser?: boolean;
+    },
+  ) => Promise<AdminReportSummary>;
   suspendUser: (
     userId: string,
     suspend: boolean,
@@ -98,6 +117,7 @@ const DEFAULT_FILTERS: AdminFilters = {
   setupQuery: '',
   setupHidden: undefined,
   setupPublic: undefined,
+  reportStatus: 'open',
 };
 
 export const useAdminStore = create<AdminStoreState>((set, get) => ({
@@ -111,6 +131,9 @@ export const useAdminStore = create<AdminStoreState>((set, get) => ({
   auditLogs: [],
   auditLogsCursor: null,
   auditLogsHasMore: false,
+  reports: [],
+  reportsCursor: null,
+  reportsHasMore: false,
 
   filters: { ...DEFAULT_FILTERS },
   isLoading: false,
@@ -211,6 +234,51 @@ export const useAdminStore = create<AdminStoreState>((set, get) => ({
       });
     } catch (err) {
       set({ error: errorMessage(err), isLoading: false });
+    }
+  },
+
+  fetchReports: async (reset = false) => {
+    const token = getTokenOrThrow();
+    const { filters, reportsCursor, reports, isLoading } = get();
+    if (!reset && isLoading) return;
+
+    set({ isLoading: true, error: null });
+    try {
+      const options: AdminReportQueryOptions = {
+        limit: 20,
+        cursor: reset ? undefined : reportsCursor ?? undefined,
+        status: filters.reportStatus,
+      };
+      const res = await apiGetAdminReports(options, token);
+      set({
+        reports: reset ? res.items : [...reports, ...res.items],
+        reportsCursor: res.nextCursor,
+        reportsHasMore: res.hasMore,
+        isLoading: false,
+      });
+    } catch (err) {
+      set({ error: errorMessage(err), isLoading: false });
+    }
+  },
+
+  resolveReport: async (reportId, payload) => {
+    const token = getTokenOrThrow();
+    set({ isActionLoading: true, actionError: null });
+    try {
+      const updated = await apiResolveAdminReport(reportId, payload, token);
+      set((state) => ({
+        reports: state.reports.map((report) =>
+          report.id === reportId ? updated : report,
+        ),
+        isActionLoading: false,
+      }));
+      void get().fetchOverview();
+      void get().fetchAuditLog(true);
+      return updated;
+    } catch (err) {
+      const msg = errorMessage(err);
+      set({ actionError: msg, isActionLoading: false });
+      throw err;
     }
   },
 
@@ -315,6 +383,9 @@ export const useAdminStore = create<AdminStoreState>((set, get) => ({
       auditLogs: [],
       auditLogsCursor: null,
       auditLogsHasMore: false,
+      reports: [],
+      reportsCursor: null,
+      reportsHasMore: false,
       filters: { ...DEFAULT_FILTERS },
       isLoading: false,
       isActionLoading: false,

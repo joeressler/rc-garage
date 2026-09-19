@@ -123,6 +123,8 @@ export async function runAdminModerationVerification(
     email: `outlaw.${stamp}@example.com`,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `Outlaw_${stamp}`.slice(0, 30),
   };
 
@@ -133,6 +135,8 @@ export async function runAdminModerationVerification(
     email: adminEmail,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `PitAdmin_${stamp}`.slice(0, 30),
   };
 
@@ -140,6 +144,8 @@ export async function runAdminModerationVerification(
     email: `marshall.${stamp}@example.com`,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `Marshall_${stamp}`.slice(0, 30),
   };
 
@@ -444,7 +450,11 @@ async function main(): Promise<void> {
   }
 }
 
-if (require.main === module) {
+const adminModerationEntry = (process.argv[1] ?? '').replace(/\\/g, '/');
+if (
+  adminModerationEntry.endsWith('admin-moderation.spec.ts') ||
+  adminModerationEntry.endsWith('admin-moderation.spec.js')
+) {
   main().catch((err) => {
     console.error('Milestone 13 Verification Failed:', err);
     process.exit(1);

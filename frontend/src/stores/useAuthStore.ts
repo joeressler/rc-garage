@@ -31,6 +31,8 @@ export interface AuthState {
     password: string;
     callsign: string;
     ageAttested: true;
+    acceptedLegal: true;
+    recaptchaToken: string;
   }) => Promise<void>;
   changePassword: (payload: {
     currentPassword: string;

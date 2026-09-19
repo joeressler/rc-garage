@@ -180,11 +180,17 @@ describe('useAuthStore', () => {
       password: 'password123',
       callsign: 'TrailBoss',
       ageAttested: true,
+      acceptedLegal: true,
+      recaptchaToken: 'dev-bypass',
     });
 
     const [path, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
     expect(path).toBe('/api/garage/auth/register');
-    expect(JSON.parse(String(init.body))).toMatchObject({ ageAttested: true });
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      ageAttested: true,
+      acceptedLegal: true,
+      recaptchaToken: 'dev-bypass',
+    });
     expect(window.localStorage.getItem('rc-garage-auth')).toContain(TOKEN);
     expect(document.cookie).toBe('');
 

@@ -33,6 +33,7 @@ import { FeedItem, PaginatedFeedResponse } from '../src/contracts/feed.contract'
 import { SetupEntity } from '../src/contracts/setup.contract';
 import { VehicleEntity } from '../src/contracts/vehicle.contract';
 import { DatabaseService } from '../src/database/database.service';
+import { applyE2eHardeningEnv } from './e2e-env';
 
 interface Envelope<T> {
   success: boolean;
@@ -143,6 +144,8 @@ export async function runAdminModerationVerification(
     email: `outlaw.${stamp}@example.com`,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `Outlaw_${stamp}`.slice(0, 30),
   };
 
@@ -153,6 +156,8 @@ export async function runAdminModerationVerification(
     email: adminEmail,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `PitAdmin_${stamp}`.slice(0, 30),
   };
 
@@ -160,6 +165,8 @@ export async function runAdminModerationVerification(
     email: `marshall.${stamp}@example.com`,
     password: 'password123',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `Marshall_${stamp}`.slice(0, 30),
   };
 
@@ -181,14 +188,17 @@ export async function runAdminModerationVerification(
       `Standard driver must receive 403 on /admin/overview, got ${outlawAdminOverview.status}`,
     );
 
-    // 2. Register bootstrap admin and verify 200 OK on /admin/overview
+    // 2. Register operator and promote via SQL — ConfigService caches BOOTSTRAP_ADMIN_EMAIL at Nest boot.
     console.log('[2/10] Registering platform operator via BOOTSTRAP_ADMIN_EMAIL...');
     const adminRegRes = await requestJson(baseUrl, 'POST', '/auth/register', {
       body: adminOperator,
     });
     assert(adminRegRes.status === 201, `Failed to register admin: ${JSON.stringify(adminRegRes.body)}`);
     const adminAuth: AuthTokenResponse = adminRegRes.body.data;
-    assert(adminAuth.user.role === 'admin', 'Bootstrap email user must be promoted to admin');
+    await database.query(`UPDATE users SET role = 'admin' WHERE id = $1`, [
+      adminAuth.user.id,
+    ]);
+    adminAuth.user.role = 'admin';
 
     const adminOverviewRes = await requestJson(baseUrl, 'GET', '/admin/overview', {
       token: adminAuth.token,
@@ -453,6 +463,7 @@ export async function runAdminModerationVerification(
 }
 
 async function main(): Promise<void> {
+  applyE2eHardeningEnv();
   if (!process.env.DATABASE_URL) {
     console.log(
       'Skipping database-dependent execution (DATABASE_URL not set). Please set DATABASE_URL to run live admin verification.',

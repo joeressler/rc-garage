@@ -22,6 +22,7 @@ import {
 import { formatFdr, formatShock, VEHICLE_CLASS_LABELS } from '../../lib/vehicle-labels';
 import { useAuthStore } from '../../stores/useAuthStore';
 import type { ForkToGarageSource } from './ForkToGarageModal';
+import { ReportSetupModal, type ReportTarget } from './ReportSetupModal';
 
 interface SetupInspectOverlayProps {
   open: boolean;
@@ -30,6 +31,7 @@ interface SetupInspectOverlayProps {
   authorCallsign?: string | null;
   onClose: () => void;
   onRequestFork: (source: ForkToGarageSource) => void;
+  onRequestAuth: () => void;
 }
 
 /**
@@ -42,12 +44,16 @@ export function SetupInspectOverlay({
   authorCallsign,
   onClose,
   onRequestFork,
+  onRequestAuth,
 }: SetupInspectOverlayProps) {
   const token = useAuthStore((state) => state.token);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const currentUserId = useAuthStore((state) => state.user?.id);
   const [setup, setSetup] = useState<SetupEntity | null>(null);
   const [vehicle, setVehicle] = useState<PublicInspectionVehicle | null>(null);
   const [missing, setMissing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
 
   useEffect(() => {
     if (!open || (!setupId && !slug)) {
@@ -102,6 +108,14 @@ export function SetupInspectOverlay({
     });
   };
 
+  const requestReport = (next: ReportTarget) => {
+    if (!isAuthenticated) {
+      onRequestAuth();
+      return;
+    }
+    setReportTarget(next);
+  };
+
   return (
     <div
       role="dialog"
@@ -141,11 +155,31 @@ export function SetupInspectOverlay({
             setup={setup}
             vehicle={vehicle}
             authorCallsign={authorCallsign}
+            canReport={setup.userId !== currentUserId}
             onClose={onClose}
             onFork={handleFork}
+            onReportSheet={() =>
+              requestReport({
+                targetType: 'setup',
+                targetId: setup.id,
+                label: setup.title,
+              })
+            }
+            onReportDriver={() =>
+              requestReport({
+                targetType: 'user',
+                targetId: setup.userId,
+                label: authorCallsign ? `@${authorCallsign}` : 'Driver',
+              })
+            }
           />
         ) : null}
       </div>
+      <ReportSetupModal
+        open={reportTarget !== null}
+        target={reportTarget}
+        onClose={() => setReportTarget(null)}
+      />
     </div>
   );
 }
@@ -179,14 +213,20 @@ function InspectedSheet({
   setup,
   vehicle,
   authorCallsign,
+  canReport,
   onClose,
   onFork,
+  onReportSheet,
+  onReportDriver,
 }: {
   setup: SetupEntity;
   vehicle: PublicInspectionVehicle | null;
   authorCallsign?: string | null;
+  canReport: boolean;
   onClose: () => void;
   onFork: () => void;
+  onReportSheet: () => void;
+  onReportDriver: () => void;
 }) {
   const classLabel = vehicle ? VEHICLE_CLASS_LABELS[vehicle.vehicleClass] : null;
   const settings = setup.settings;
@@ -209,8 +249,17 @@ function InspectedSheet({
             <p className="mt-2 font-mono text-xs text-readout-dim">{vehicle.name}</p>
           ) : null}
           {authorCallsign ? (
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-hazard-orange">
-              @{authorCallsign}
+            <p className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-hazard-orange">
+              <span>@{authorCallsign}</span>
+              {canReport ? (
+                <button
+                  type="button"
+                  onClick={onReportDriver}
+                  className="border border-metal-border px-2 py-0.5 text-[10px] uppercase tracking-widest text-readout-dim hover:text-hazard-orange"
+                >
+                  Report driver
+                </button>
+              ) : null}
             </p>
           ) : null}
           {vehicle ? (
@@ -326,7 +375,18 @@ function InspectedSheet({
       </div>
 
       <div className="flex flex-col gap-3 border-t border-metal-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <BackToFeedButton onClose={onClose} />
+        <div className="flex flex-wrap gap-2">
+          <BackToFeedButton onClose={onClose} />
+          {canReport ? (
+            <button
+              type="button"
+              onClick={onReportSheet}
+              className="border border-nitromethane px-4 py-2 font-display text-xs uppercase tracking-[0.2em] text-nitromethane hover:bg-nitromethane/10"
+            >
+              Report sheet
+            </button>
+          ) : null}
+        </div>
         <button
           type="button"
           onClick={onFork}

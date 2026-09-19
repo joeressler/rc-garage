@@ -41,6 +41,9 @@ JWT_EXPIRATION=7d
 APP_BASE_URL=http://127.0.0.1:3742
 # Optional: designate an initial admin user
 BOOTSTRAP_ADMIN_EMAIL=admin@rc-garage.community
+# Google reCAPTCHA v2 checkbox (dev-bypass skips siteverify locally)
+RECAPTCHA_SECRET_KEY=dev-bypass
+VITE_RECAPTCHA_SITE_KEY=dev-bypass
 ```
 
 ### Step 2: Build and Boot Containers
@@ -262,3 +265,42 @@ npm run migration:down
 # Reapply up migrations
 npm run migration:up
 ```
+
+---
+
+## 7. Public Host (TLS, backups, recaptcha, CI)
+
+Compose still binds **only** `127.0.0.1:3742` and `127.0.0.1:5742`. Do not publish those ports on `0.0.0.0`. Terminate TLS on the host and reverse-proxy to loopback.
+
+### 7.1 Host nginx + Let's Encrypt
+1. Install `/docker/host-nginx.conf.example` as the site config (`api_limit` 15r/s and `auth_limit` 3r/s stay required at the public edge).
+2. Point `server_name` at your hostname and follow the Certbot comments in that file.
+3. Nest CORS stays **off** for this same-origin topology. Split-origin deploys must set CORS later.
+
+### 7.2 PostgreSQL backup and restore
+Dump from the running `rc-db` container (creates gitignored `backups/`):
+
+```bash
+# Linux / macOS
+bash scripts/backup-pg.sh
+
+# Windows
+powershell -File scripts/backup-pg.ps1
+```
+
+The script writes `backups/rc-garage-YYYYMMDD.sql` via `docker compose exec -T rc-db pg_dump`. Restore example:
+
+```bash
+docker compose exec -T rc-db psql -U "$POSTGRES_USER" "$POSTGRES_DB" < backups/rc-garage-YYYYMMDD.sql
+```
+
+### 7.3 Google reCAPTCHA v2
+Create a **Checkbox** key pair at [Google reCAPTCHA admin](https://www.google.com/recaptcha/admin). Allowlist `localhost` plus the public hostname. Set `RECAPTCHA_SECRET_KEY` for `rc-backend` and `VITE_RECAPTCHA_SITE_KEY` as a **frontend image build ARG** (Vite inlines `VITE_*` at compile time).
+
+Local and e2e use `RECAPTCHA_SECRET_KEY=dev-bypass` with register token `dev-bypass` (no network call). Production `.env` must use real keys.
+
+### 7.4 CI
+`.github/workflows/ci.yml` runs on `pull_request`: `npm run typecheck`, `npm run test:unit`, `npm run test:frontend`. Full e2e/workflow stays local/compose so CI does not need recaptcha secrets.
+
+### 7.5 Documented follow-ons (not implemented)
+IP bans, mute/block lists, and suspension appeals remain out of scope for this milestone.

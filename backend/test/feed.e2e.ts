@@ -15,6 +15,7 @@ import {
 import { SetupEntity } from '../src/contracts/setup.contract';
 import { VehicleEntity } from '../src/contracts/vehicle.contract';
 import { DatabaseService } from '../src/database/database.service';
+import { applyE2eHardeningEnv } from './e2e-env';
 
 interface Envelope<T> {
   success: boolean;
@@ -80,6 +81,7 @@ function buildSettings(surface: 'granite_rock' | 'slick_rock', locationTag: stri
 }
 
 async function main(): Promise<void> {
+  applyE2eHardeningEnv();
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is required');
   }
@@ -106,12 +108,16 @@ async function main(): Promise<void> {
     email: `feed.a.${stamp}@example.com`,
     password: 'pit-mat-pass-1',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `feed_a_${stamp}`.slice(0, 30),
   };
   const userB = {
     email: `feed.b.${stamp}@example.com`,
     password: 'pit-mat-pass-2',
     ageAttested: true as const,
+    acceptedLegal: true as const,
+    recaptchaToken: 'dev-bypass',
     callsign: `feed_b_${stamp}`.slice(0, 30),
   };
 
