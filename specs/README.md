@@ -22,6 +22,25 @@ This directory contains the sequential milestone specification files for buildin
 | **12** | [`12_COMMUNITY_FEED_DIFF_AND_PRINTER.md`](./12_COMMUNITY_FEED_DIFF_AND_PRINTER.md) | Community UI & Printer | Community feed workbench, filter drawer, side-by-side fork diff inspector, 1.5" vinyl chassis sticker printer modal, and E2E verification. |
 | **13** | [`13_ADMIN_CONSOLE_AND_MODERATION.md`](./13_ADMIN_CONSOLE_AND_MODERATION.md) | Admin Console & Moderation | Role-gated Scrutineering Desk, user suspend/reinstate, setup force-hide/delete, JWT role guards, moderation audit log, and admin E2E coverage. |
 | **14** | [`14_PRODUCTION_CLEANUP_AND_OPERATIONAL_EXCELLENCE.md`](./14_PRODUCTION_CLEANUP_AND_OPERATIONAL_EXCELLENCE.md) | Production Readiness & Docs | Developer onboarding runbook, AGENTS.md, CONTRIBUTING.md, ARCHITECTURE.md, crawler SVG favicon, and workspace orchestration. |
+| **15** | [`15_ACCOUNT_LIFECYCLE_AND_EMAIL.md`](./15_ACCOUNT_LIFECYCLE_AND_EMAIL.md) | Account Lifecycle & Email | Email verification, password reset/change, age attestation, profile bio/avatar URL, account self-delete, and unverified-driver gate on community writes. |
+| **16** | [`16_PUBLIC_HARDENING_LEGAL_AND_REPORTS.md`](./16_PUBLIC_HARDENING_LEGAL_AND_REPORTS.md) | Hardening, Legal & Reports | Nest throttling, Turnstile on register, Terms/Privacy/Guidelines, driver report queue, host TLS/backup/CI runbook. |
+| **17** | [`17_DRIVER_PROFILES_AND_COMMUNITY_QOL.md`](./17_DRIVER_PROFILES_AND_COMMUNITY_QOL.md) | Public Profiles & QoL | Public `/u/:callsign` profiles, avatars, tag editor and feed filters, copy `/s/:slug`, guest landing on the feed. |
+| **18** | [`18_SOCIAL_SHARE_PREVIEWS_AND_SEO.md`](./18_SOCIAL_SHARE_PREVIEWS_AND_SEO.md) | Share Previews & SEO | Crawler-visible HTML + Open Graph for `/s/:slug`, robots.txt, sitemap of public sheets. |
+| **19** | [`19_SETUP_SHEET_COMMENTS.md`](./19_SETUP_SHEET_COMMENTS.md) | Setup Comments | Flat comments on public sheets, author delete, moderator hide, reports against comment ids. |
+| **20** | [`20_IN_APP_NOTIFICATIONS.md`](./20_IN_APP_NOTIFICATIONS.md) | In-App Notifications | REST notification bell for like, fork, comment, and report outcomes (no WebSockets or email). |
+
+Milestones **15–20** are the public-community readiness sequence. Implement them in order: 15 and 16 before 19; 19 before 20. They keep the product a **setup-sheet community** (garage, clipboard, feed, fork, QR), not a general social network.
+
+### Deferred (not scheduled)
+The following stay out of 15–20 and must not be smuggled into those implementations:
+
+- Follow / friend graphs and personalized ranking
+- Direct messages / inbox
+- OAuth / SSO and 2FA
+- PWA / service workers
+- Analytics beacons
+- Chassis or setup photo uploads and CDN
+- Stories, mentions, nested comment threads, and email notification digests
 
 ---
 
