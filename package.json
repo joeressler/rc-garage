@@ -11,7 +11,8 @@
     "test:workflow": "npm --prefix backend run test:workflow",
     "test:admin": "npm --prefix backend run test:admin",
     "test:frontend": "npm --prefix frontend run test",
-    "typecheck": "tsc --noEmit -p backend/tsconfig.json ; tsc --noEmit -p frontend/tsconfig.json",
+    "typecheck": "npm --prefix backend run typecheck ; npm --prefix frontend run typecheck",
+    "lint": "npm run typecheck",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f"
