@@ -1,9 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
+  apiChangeEmail,
+  apiChangePassword,
+  apiDeleteAccount,
   apiGetMe,
   apiLogin,
   apiRegister,
+  apiUpdateProfile,
   asSessionProfile,
   type SessionProfile,
   type UserProfile,
@@ -26,6 +30,20 @@ export interface AuthState {
     email: string;
     password: string;
     callsign: string;
+    ageAttested: true;
+  }) => Promise<void>;
+  changePassword: (payload: {
+    currentPassword: string;
+    nextPassword: string;
+  }) => Promise<void>;
+  changeEmail: (payload: { password: string; nextEmail: string }) => Promise<void>;
+  updateProfile: (payload: {
+    bio?: string | null;
+    avatarUrl?: string | null;
+  }) => Promise<void>;
+  deleteAccount: (payload: {
+    password: string;
+    confirmation: 'DELETE';
   }) => Promise<void>;
   logout: () => void;
   checkSession: () => Promise<void>;
@@ -95,6 +113,80 @@ export const useAuthStore = create<AuthState>()(
           throw err;
         }
       },
+      changePassword: async (payload) => {
+        const token = get().token;
+        if (!token) {
+          throw new Error('Unable to reach the garage API');
+        }
+        set({ isLoading: true, error: null });
+        try {
+          await apiChangePassword(token, payload);
+          set({ isLoading: false });
+        } catch (err: unknown) {
+          set({ error: errorMessage(err), isLoading: false });
+          throw err;
+        }
+      },
+      changeEmail: async (payload) => {
+        const token = get().token;
+        const current = get().user;
+        if (!token) {
+          throw new Error('Unable to reach the garage API');
+        }
+        set({ isLoading: true, error: null });
+        try {
+          const profile = await apiChangeEmail(token, payload);
+          set({
+            user: current
+              ? { ...current, ...profile }
+              : asSessionProfile(profile),
+            isLoading: false,
+          });
+        } catch (err: unknown) {
+          set({ error: errorMessage(err), isLoading: false });
+          throw err;
+        }
+      },
+      updateProfile: async (payload) => {
+        const token = get().token;
+        const current = get().user;
+        if (!token) {
+          throw new Error('Unable to reach the garage API');
+        }
+        set({ isLoading: true, error: null });
+        try {
+          const profile = await apiUpdateProfile(token, payload);
+          set({
+            user: current
+              ? { ...current, ...profile, avatarUrl: profile.avatarUrl, bio: profile.bio }
+              : asSessionProfile(profile),
+            isLoading: false,
+          });
+        } catch (err: unknown) {
+          set({ error: errorMessage(err), isLoading: false });
+          throw err;
+        }
+      },
+      deleteAccount: async (payload) => {
+        const token = get().token;
+        if (!token) {
+          throw new Error('Unable to reach the garage API');
+        }
+        set({ isLoading: true, error: null });
+        try {
+          await apiDeleteAccount(token, payload);
+          set({
+            token: null,
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: null,
+          });
+        } catch (err: unknown) {
+          set({ error: errorMessage(err), isLoading: false });
+          throw err;
+        }
+      },
       logout: () =>
         set({
           token: null,
@@ -115,6 +207,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'rc-garage-auth',
+      // JWT lives in localStorage so XSS can steal it for JWT_EXPIRATION (default 7d); httpOnly cookies are deferred.
       partialize: (state) => ({ token: state.token }),
       onRehydrateStorage: () => (state) => {
         if (!state?.token) {

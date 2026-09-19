@@ -6,7 +6,7 @@ Make the existing pit-mat stack defensible on a public hostname: application-lev
 
 **Product framing:** reports protect setup-sheet integrity (spam, abuse, stolen content), not a general social graph.
 
-**Depends on:** Milestone 13 (admin console, `moderation_audit_log`) and Milestone 15 (`EmailVerifiedGuard` for report authors). **Unblocks:** 19 (comment as a report `targetType`).
+**Depends on:** Milestone 13 (admin console, `moderation_audit_log`) and Milestone 15 (age attestation + self-delete on the register/settings forms). **Unblocks:** 19 (comment as a report `targetType`).
 
 ---
 
@@ -62,7 +62,6 @@ Install `@nestjs/throttler` globally:
 
 - Default: 60 requests / 60 seconds / IP for `/api/garage/*`
 - Override on `POST /auth/register` and `POST /auth/login`: 5 requests / 60 seconds / IP
-- Override on `POST /auth/forgot-password` and `POST /auth/resend-verification`: 3 requests / 60 seconds / IP
 - `429 Too Many Requests` through the standard envelope (`success: false`, `error: "Too Many Requests"`)
 
 Host nginx `limit_req` in `/docker/host-nginx.conf.example` remains **required at the public edge** (`api_limit` 15r/s, `auth_limit` 3r/s). Nest limits are defense in depth for loopback and misconfigured edges. Implementation must not remove those nginx zones.
@@ -86,7 +85,7 @@ Create a v2 **Checkbox** key pair in the [Google reCAPTCHA admin console](https:
 - Failure: `400` `"reCAPTCHA verification failed"`.
 - **Dev/test bypass:** when `RECAPTCHA_SECRET_KEY` is empty or `dev-bypass`, accept token `dev-bypass` and skip the network call. Production `.env` must set real keys; document this in GETTING_STARTED.
 
-Login does **not** require reCAPTCHA (throttling covers brute force). Forgot-password remains unauthenticated + throttled without a challenge.
+Login does **not** require reCAPTCHA (throttling covers brute force). Forgot-password is not in this milestone (deferred until a mailer exists).
 
 Frontend: load `https://www.google.com/recaptcha/api.js` (or `react-google-recaptcha` wrapping that script) on register mode only; send the widget token in `apiRegister`. Reset the widget after a failed register so the driver must solve a fresh challenge. Legal checkboxes (3.4) are independent.
 
@@ -141,7 +140,7 @@ export const ReportReasonCodeSchema = z.enum([
 ```
 
 ### 3.6 Driver report API
-`POST /api/garage/reports` — `JwtAuthGuard` + `EmailVerifiedGuard` (15).
+`POST /api/garage/reports` — `JwtAuthGuard` (suspended accounts already fail JWT strategy).
 
 ```typescript
 export const CreateReportSchema = z.object({
@@ -191,7 +190,7 @@ When `hideSetup` is true, the report `target_type` must be `setup`; reuse `Admin
 Do **not** build a second admin app. Add `ReportQueuePanel` to `AdminConsoleWorkbench` beside existing tables. Pit-Mat: nitromethane for `open`, neon-radio for `dismissed`, hazard-orange for `actioned`.
 
 ### 3.8 Inspect overlay report control
-On `SetupInspectOverlay`, authenticated + verified drivers get a **Report sheet** control opening `ReportSetupModal` (reason select + details). Guests are prompted through existing `onRequestAuth`. Unverified drivers see the verification banner, not a silent failure.
+On `SetupInspectOverlay`, authenticated drivers get a **Report sheet** control opening `ReportSetupModal` (reason select + details). Guests are prompted through existing `onRequestAuth`.
 
 Reporting a **user** from the overlay is a secondary control on the author callsign (“Report driver”). Optional but specified: include it so `targetType: 'user'` is exercised.
 
@@ -200,7 +199,7 @@ Update `GETTING_STARTED.md` with a **Public host** section:
 1. Install `/docker/host-nginx.conf.example` as the site config; provision Let’s Encrypt as already sketched in that file.
 2. Never publish compose ports off `127.0.0.1`.
 3. Backup: `scripts/backup-pg.sh` runs `docker compose exec -T rc-db pg_dump -U $POSTGRES_USER $POSTGRES_DB` to `backups/rc-garage-YYYYMMDD.sql` (script creates `backups/` which is gitignored). Document restore via `psql`.
-4. CI: `.github/workflows/ci.yml` on pull_request runs `npm run typecheck`, `npm run test:unit`, `npm run test:frontend`. Full e2e/workflow remains local/compose (do not require secrets-heavy SMTP/reCAPTCHA in CI; use bypasses).
+4. CI: `.github/workflows/ci.yml` on pull_request runs `npm run typecheck`, `npm run test:unit`, `npm run test:frontend`. Full e2e/workflow remains local/compose (do not require secrets-heavy reCAPTCHA in CI; use bypasses).
 
 Follow-on (document only, do not implement): IP bans, mute/block lists, suspension appeals.
 
@@ -210,11 +209,11 @@ Follow-on (document only, do not implement): IP bans, mute/block lists, suspensi
 1. With `THROTTLE_DISABLED` unset in a unit test double, exceeding the auth bucket returns `429` in the standard envelope.
 2. Register without `recaptchaToken` returns `400`. With `RECAPTCHA_SECRET_KEY=dev-bypass` and token `dev-bypass`, register succeeds.
 3. Register without `acceptedLegal: true` returns `400`. `/legal/terms`, `/legal/privacy`, and `/legal/guidelines` render non-empty policy text in the SPA.
-4. Unverified JWT `POST /reports` returns `403` `"Email verification required"`.
-5. Verified driver can report a public setup; a second open report on the same target from the same driver is `409`.
+4. Suspended JWT `POST /reports` is rejected by the existing suspension gate (`403`).
+5. Authenticated driver can report a public setup; a second open report on the same target from the same driver is `409`.
 6. Moderator `PATCH` with `hideSetup: true` hides the sheet from `GET /feed` and `/qr/resolve/:slug`, sets report `actioned`, and inserts `setup.hide` plus `report.resolve` audit rows.
 7. `GET /admin/overview` includes `openReportCount` that drops after dismiss/action.
 8. Driver JWT cannot list `/admin/reports` (`403`).
-9. `tests/e2e/content-reports.spec.ts` (or extended admin-moderation e2e): verified reporter → open queue row → moderator hide via report action → feed exclusion.
+9. `tests/e2e/content-reports.spec.ts` (or extended admin-moderation e2e): authenticated reporter → open queue row → moderator hide via report action → feed exclusion.
 10. `GETTING_STARTED.md` documents TLS nginx, `pg_dump` script path, and CI workflow path. `.github/workflows/ci.yml` exists and invokes typecheck + unit + frontend tests.
 11. Block/mute/appeals/DMs are absent (no tables, routes, or UI).

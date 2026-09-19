@@ -142,7 +142,7 @@ export interface PaginatedAdminSetups {
 
 export interface ModerationAuditLogEntry {
   id: string;
-  actorUserId: string;
+  actorUserId: string | null;
   actorCallsign: string;
   actorRole: UserRole;
   action: string;

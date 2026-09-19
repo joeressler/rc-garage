@@ -48,11 +48,13 @@ async function main(): Promise<void> {
   const userA = {
     email: `crawler.a.${stamp}@example.com`,
     password: 'pit-mat-pass-1',
+    ageAttested: true as const,
     callsign: `crawler_a_${stamp}`.slice(0, 30),
   };
   const userB = {
     email: `crawler.b.${stamp}@example.com`,
     password: 'pit-mat-pass-2',
+    ageAttested: true as const,
     callsign: `crawler_b_${stamp}`.slice(0, 30),
   };
 

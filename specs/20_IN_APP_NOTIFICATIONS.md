@@ -121,7 +121,7 @@ Envelope remains standard. Recipients only see their rows (no admin dump in v1).
 `useNotificationStore`: items, unreadCount, fetch, markRead, poll handle. Reset on logout.
 
 ### 3.5 Email
-Do **not** send SMTP for notifications even if Milestone 15 `EMAIL_ENABLED=true`. In-app only. A digest is a future deferred item.
+Do **not** send email for notifications. In-app only. A digest is deferred until a mailer exists.
 
 ---
 
@@ -135,5 +135,5 @@ Do **not** send SMTP for notifications even if Milestone 15 `EMAIL_ENABLED=true`
 7. `POST /notifications/read` without ids zeroes `unreadCount`.
 8. Driver JWT cannot read another user’s notifications (query always filtered by `sub`).
 9. Frontend test: badge reflects unreadCount; poll store does not use WebSocket APIs.
-10. `tests/e2e/notifications.spec.ts`: register/verify two drivers → like → list notification → mark read → unreadCount 0.
+10. `tests/e2e/notifications.spec.ts`: register two drivers → like → list notification → mark read → unreadCount 0.
 11. No DMs, follows, email sends, or Socket.IO modules.

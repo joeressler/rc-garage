@@ -64,9 +64,9 @@ interface SetupDbRow {
 
 interface AuditDbRow {
   id: string;
-  actor_user_id: string;
-  actor_callsign: string;
-  actor_role: UserRole;
+  actor_user_id: string | null;
+  actor_callsign: string | null;
+  actor_role: UserRole | null;
   action: string;
   target_type: 'user' | 'setup';
   target_id: string;
@@ -657,7 +657,7 @@ export class AdminService {
          m.metadata,
          m.created_at
        FROM moderation_audit_log m
-       JOIN users u ON u.id = m.actor_user_id
+       LEFT JOIN users u ON u.id = m.actor_user_id
        WHERE ${where.join(' AND ')}
        ORDER BY m.created_at DESC, m.id DESC
        LIMIT $${params.length}`,
@@ -733,8 +733,8 @@ export class AdminService {
     return {
       id: r.id,
       actorUserId: r.actor_user_id,
-      actorCallsign: r.actor_callsign,
-      actorRole: r.actor_role,
+      actorCallsign: r.actor_callsign ?? 'deleted',
+      actorRole: r.actor_role ?? 'driver',
       action: r.action,
       targetType: r.target_type,
       targetId: r.target_id,

@@ -22,7 +22,7 @@ This directory contains the sequential milestone specification files for buildin
 | **12** | [`12_COMMUNITY_FEED_DIFF_AND_PRINTER.md`](./12_COMMUNITY_FEED_DIFF_AND_PRINTER.md) | Community UI & Printer | Community feed workbench, filter drawer, side-by-side fork diff inspector, 1.5" vinyl chassis sticker printer modal, and E2E verification. |
 | **13** | [`13_ADMIN_CONSOLE_AND_MODERATION.md`](./13_ADMIN_CONSOLE_AND_MODERATION.md) | Admin Console & Moderation | Role-gated Scrutineering Desk, user suspend/reinstate, setup force-hide/delete, JWT role guards, moderation audit log, and admin E2E coverage. |
 | **14** | [`14_PRODUCTION_CLEANUP_AND_OPERATIONAL_EXCELLENCE.md`](./14_PRODUCTION_CLEANUP_AND_OPERATIONAL_EXCELLENCE.md) | Production Readiness & Docs | Developer onboarding runbook, AGENTS.md, CONTRIBUTING.md, ARCHITECTURE.md, crawler SVG favicon, and workspace orchestration. |
-| **15** | [`15_ACCOUNT_LIFECYCLE_AND_EMAIL.md`](./15_ACCOUNT_LIFECYCLE_AND_EMAIL.md) | Account Lifecycle & Email | Email verification, password reset/change, age attestation, profile bio/avatar URL, account self-delete, and unverified-driver gate on community writes. |
+| **15** | [`15_ACCOUNT_LIFECYCLE_AND_EMAIL.md`](./15_ACCOUNT_LIFECYCLE_AND_EMAIL.md) | Account Lifecycle & Settings | Age attestation, stronger passwords, profile bio/avatar URL, logged-in change password/email, and account self-delete (no SMTP). |
 | **16** | [`16_PUBLIC_HARDENING_LEGAL_AND_REPORTS.md`](./16_PUBLIC_HARDENING_LEGAL_AND_REPORTS.md) | Hardening, Legal & Reports | Nest throttling, Google reCAPTCHA v2 on register, Terms/Privacy/Guidelines, driver report queue, host TLS/backup/CI runbook. |
 | **17** | [`17_DRIVER_PROFILES_AND_COMMUNITY_QOL.md`](./17_DRIVER_PROFILES_AND_COMMUNITY_QOL.md) | Public Profiles & QoL | Public `/u/:callsign` profiles, avatars, tag editor and feed filters, copy `/s/:slug`, guest landing on the feed. |
 | **18** | [`18_SOCIAL_SHARE_PREVIEWS_AND_SEO.md`](./18_SOCIAL_SHARE_PREVIEWS_AND_SEO.md) | Share Previews & SEO | Crawler-visible HTML + Open Graph for `/s/:slug`, robots.txt, sitemap of public sheets. |
@@ -40,7 +40,8 @@ The following stay out of 15–20 and must not be smuggled into those implementa
 - PWA / service workers
 - Analytics beacons
 - Chassis or setup photo uploads and CDN
-- Stories, mentions, nested comment threads, and email notification digests
+- Stories, mentions, nested comment threads, email verification, and forgot/reset password (until a mailer exists)
+- Email notification digests
 
 ---
 

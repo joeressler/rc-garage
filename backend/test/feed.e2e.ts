@@ -105,11 +105,13 @@ async function main(): Promise<void> {
   const userA = {
     email: `feed.a.${stamp}@example.com`,
     password: 'pit-mat-pass-1',
+    ageAttested: true as const,
     callsign: `feed_a_${stamp}`.slice(0, 30),
   };
   const userB = {
     email: `feed.b.${stamp}@example.com`,
     password: 'pit-mat-pass-2',
+    ageAttested: true as const,
     callsign: `feed_b_${stamp}`.slice(0, 30),
   };
 

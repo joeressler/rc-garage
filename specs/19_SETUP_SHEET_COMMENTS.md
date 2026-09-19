@@ -6,7 +6,7 @@ Add a flat, moderated comment thread on **public** setup sheets so drivers can d
 **Product framing:** comments annotate a setup sheet (like a GitHub issue on a forkable spec), not a social feed post.
 
 **Depends on:**
-- Milestone 15 — `EmailVerifiedGuard` for create
+- Milestone 15 — authenticated session + not suspended
 - Milestone 16 — `content_reports.target_type = 'comment'` CHECK already exists; wire it
 - Milestone 13 — moderator hide + `moderation_audit_log`
 
@@ -92,7 +92,7 @@ Prefix `/api/garage`.
 | Method | Path | Auth | Description |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/setups/:id/comments` | Optional JWT | Oldest-first page for inspect; `404` if setup missing or not publicly inspectable (`is_public` and not `is_hidden`, unless caller owns the private sheet — **private sheets: comments disabled**, always `403` `"Comments are only available on public sheets"`) |
-| `POST` | `/setups/:id/comments` | JWT + EmailVerified + not suspended | Create; `201` comment |
+| `POST` | `/setups/:id/comments` | JWT + not suspended | Create; `201` comment |
 | `DELETE` | `/comments/:id` | JWT | Author may hard-delete own comment (`204`/`200 { deleted: true }`). Moderators/admins may hide instead (3.4) |
 | `PATCH` | `/admin/comments/:id/visibility` | moderator/admin | `{ hide: true, reason }` sets `is_hidden` |
 
@@ -115,7 +115,7 @@ Milestone 16 reserved `target_type = 'comment'`. Extend `CreateReportSchema.targ
 - Heading `Pit Notes` (or `Sheet Comments`) in Barlow Condensed
 - List: `DriverAvatar` + `@callsign` (link to `/u/:callsign` from 17) + timestamp + body
 - Author sees a Delete control on own rows
-- Composer: textarea 2000, submit **Post note**; guests hit `onRequestAuth`; unverified see 15's verification message
+- Composer: textarea 2000, submit **Post note**; guests hit `onRequestAuth`
 - Load more if paginated
 - Report control per comment (reuses report modal with `targetType: 'comment'`)
 
@@ -127,13 +127,13 @@ Do **not** denormalize `comment_count` on `setups` unless the implementer needs 
 ---
 
 ## 4. Verification & Acceptance Criteria
-1. `POST /setups/:id/comments` without JWT is `401`; unverified JWT is `403` `"Email verification required"`.
+1. `POST /setups/:id/comments` without JWT is `401`; suspended JWT is `403`.
 2. Commenting on a private or hidden setup is `403`/`404` and inserts no row.
-3. Public sheet: verified driver posts a 1–2000 character body; `GET` list includes it in chronological order with author callsign.
+3. Public sheet: authenticated driver posts a 1–2000 character body; `GET` list includes it in chronological order with author callsign.
 4. Body of 2001 characters is `400`. A second post within 15 seconds from the same user on the same sheet is `429`.
 5. Author delete removes the row from subsequent public GET.
 6. Moderator hide removes the row from public GET; report `targetType: 'comment'` + `hideComment` writes audit `comment.hide`.
 7. Nested `parentId` is rejected if sent (unknown keys stripped by Zod; no thread UI).
-8. Frontend overlay test: composer hidden for guests; visible for verified session; list renders bodies.
-9. `tests/e2e/setup-comments.spec.ts`: verify → comment public sheet → second driver lists it → moderator hide → GET omits it; hidden setup cannot be commented.
+8. Frontend overlay test: composer hidden for guests; visible for authenticated session; list renders bodies.
+9. `tests/e2e/setup-comments.spec.ts`: register → comment public sheet → second driver lists it → moderator hide → GET omits it; hidden setup cannot be commented.
 10. No DM, follow, mention, or reply-thread tables.

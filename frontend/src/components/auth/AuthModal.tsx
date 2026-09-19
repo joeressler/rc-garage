@@ -9,7 +9,7 @@ interface AuthModalProps {
 type AuthMode = 'login' | 'register';
 
 /**
- * Purpose: collect driver credentials for JWT registration and login without leaving the pit-mat shell.
+ * Purpose: collect driver credentials and COPPA age attestation without leaving the pit-mat shell.
  */
 export function AuthModal({ open, onClose }: AuthModalProps) {
   const login = useAuthStore((state) => state.login);
@@ -22,6 +22,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [callsign, setCallsign] = useState('');
+  const [ageAttested, setAgeAttested] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,7 +42,11 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
       if (mode === 'login') {
         await login({ email, password });
       } else {
-        await register({ email, password, callsign });
+        if (!ageAttested) {
+          setLocalError('Confirm you are 13 years of age or older.');
+          return;
+        }
+        await register({ email, password, callsign, ageAttested: true });
       }
       onClose();
     } catch {
@@ -142,12 +147,26 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
             <input
               required
               type="password"
-              minLength={mode === 'register' ? 8 : 1}
+              minLength={mode === 'register' ? 10 : 1}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="mt-1 w-full border border-metal-border bg-pit-black px-3 py-2 font-mono text-sm text-readout-bright outline-none focus:border-hazard-orange"
             />
           </label>
+
+          {mode === 'register' ? (
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={ageAttested}
+                onChange={(event) => setAgeAttested(event.target.checked)}
+                className="mt-1"
+              />
+              <span className="font-sans text-xs text-readout-dim">
+                I confirm I am 13 years of age or older.
+              </span>
+            </label>
+          ) : null}
 
           {banner ? (
             <p className="border border-hazard-stripe bg-pit-black px-3 py-2 font-mono text-xs text-hazard-orange">

@@ -125,12 +125,14 @@ export async function runGarageWorkflowVerification(baseUrl: string, database?: 
   const driverTrailBoss = {
     email: `trailboss.${stamp}@example.com`,
     password: 'password123',
+    ageAttested: true as const,
     callsign: `TrailBoss_${stamp}`.slice(0, 30),
   };
 
   const driverRockHound = {
     email: `rockhound.${stamp}@example.com`,
     password: 'password123',
+    ageAttested: true as const,
     callsign: `RockHound_${stamp}`.slice(0, 30),
   };
 
@@ -242,6 +244,7 @@ export async function runGarageWorkflowVerification(baseUrl: string, database?: 
       body: {
         vehicleId: houndVehicle.id,
         title: 'RockHound Moab Fork (12T Pinion)',
+        isPublic: true,
         settings: updatedForkSettings,
       },
     });

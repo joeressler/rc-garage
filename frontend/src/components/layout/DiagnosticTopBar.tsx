@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useGarageStore } from '../../stores/useGarageStore';
+import { AccountSettingsModal } from '../auth/AccountSettingsModal';
 
 interface DiagnosticTopBarProps {
   onRequestAuth: () => void;
@@ -20,8 +22,10 @@ export function DiagnosticTopBar({ onRequestAuth }: DiagnosticTopBarProps) {
       : (user?.vehicleCount ?? 0)
     : 0;
   const callsign = user?.callsign ?? 'GUEST';
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
+    <>
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-metal-border bg-gradient-to-b from-pit-steel to-pit-grease px-4 py-3 shadow-beveled-panel sm:px-6">
       <div className="flex items-center gap-3">
         <span className="font-display text-xl uppercase tracking-[0.28em] text-hazard-orange sm:text-2xl">
@@ -63,13 +67,22 @@ export function DiagnosticTopBar({ onRequestAuth }: DiagnosticTopBarProps) {
         </div>
 
         {isAuthenticated ? (
-          <button
-            type="button"
-            onClick={logout}
-            className="border border-metal-border bg-pit-black px-3 py-2 font-display text-xs uppercase tracking-[0.2em] text-readout-dim transition hover:border-hazard-orange hover:text-hazard-orange"
-          >
-            Logout
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              className="border border-metal-border bg-pit-black px-3 py-2 font-display text-xs uppercase tracking-[0.2em] text-readout-dim transition hover:border-hazard-orange hover:text-hazard-orange"
+            >
+              Settings
+            </button>
+            <button
+              type="button"
+              onClick={logout}
+              className="border border-metal-border bg-pit-black px-3 py-2 font-display text-xs uppercase tracking-[0.2em] text-readout-dim transition hover:border-hazard-orange hover:text-hazard-orange"
+            >
+              Logout
+            </button>
+          </>
         ) : (
           <button
             type="button"
@@ -81,5 +94,7 @@ export function DiagnosticTopBar({ onRequestAuth }: DiagnosticTopBarProps) {
         )}
       </div>
     </header>
+      <AccountSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+    </>
   );
 }

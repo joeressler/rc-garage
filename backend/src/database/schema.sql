@@ -18,6 +18,7 @@ CREATE TABLE users (
     is_suspended BOOLEAN NOT NULL DEFAULT FALSE,
     suspended_at TIMESTAMP WITH TIME ZONE,
     suspension_reason VARCHAR(500),
+    age_attested_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT users_callsign_format CHECK (callsign ~ '^[a-zA-Z0-9_-]+$')
@@ -111,7 +112,7 @@ CREATE INDEX idx_setup_likes_setup_id ON setup_likes(setup_id);
 -- -----------------------------------------------------------------------------
 CREATE TABLE moderation_audit_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    actor_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    actor_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     action VARCHAR(40) NOT NULL,
     target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('user', 'setup')),
     target_id UUID NOT NULL,

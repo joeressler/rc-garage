@@ -1,20 +1,33 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
 import {
+  AccountDeletedResult,
   AuthenticatedUser,
   AuthMeResponse,
   AuthTokenResponse,
+  ChangeEmailDto,
+  ChangeEmailSchema,
+  ChangePasswordDto,
+  ChangePasswordSchema,
+  DeleteAccountDto,
+  DeleteAccountSchema,
+  PasswordChangedResult,
+  UpdateProfileDto,
+  UpdateProfileSchema,
   UserLoginDto,
   UserLoginSchema,
+  UserProfile,
   UserRegistrationDto,
   UserRegistrationSchema,
 } from '../../contracts/auth.contract';
@@ -50,5 +63,44 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   me(@Req() request: AuthenticatedRequest): Promise<AuthMeResponse> {
     return this.authService.getMe(request.user.id);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  changePassword(
+    @Req() request: AuthenticatedRequest,
+    @Body(new ZodValidationPipe(ChangePasswordSchema)) dto: ChangePasswordDto,
+  ): Promise<PasswordChangedResult> {
+    return this.authService.changePassword(request.user.id, dto);
+  }
+
+  @Post('change-email')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  changeEmail(
+    @Req() request: AuthenticatedRequest,
+    @Body(new ZodValidationPipe(ChangeEmailSchema)) dto: ChangeEmailDto,
+  ): Promise<UserProfile> {
+    return this.authService.changeEmail(request.user.id, dto);
+  }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  updateProfile(
+    @Req() request: AuthenticatedRequest,
+    @Body(new ZodValidationPipe(UpdateProfileSchema)) dto: UpdateProfileDto,
+  ): Promise<UserProfile> {
+    return this.authService.updateProfile(request.user.id, dto);
+  }
+
+  @Delete('me')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  deleteAccount(
+    @Req() request: AuthenticatedRequest,
+    @Body(new ZodValidationPipe(DeleteAccountSchema)) dto: DeleteAccountDto,
+  ): Promise<AccountDeletedResult> {
+    return this.authService.deleteAccount(request.user.id, dto);
   }
 }

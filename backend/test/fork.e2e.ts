@@ -97,11 +97,13 @@ async function main(): Promise<void> {
   const userA = {
     email: `fork.a.${stamp}@example.com`,
     password: 'pit-mat-pass-1',
+    ageAttested: true as const,
     callsign: `fork_a_${stamp}`.slice(0, 30),
   };
   const userB = {
     email: `fork.b.${stamp}@example.com`,
     password: 'pit-mat-pass-2',
+    ageAttested: true as const,
     callsign: `fork_b_${stamp}`.slice(0, 30),
   };
 

@@ -103,6 +103,7 @@ async function main(): Promise<void> {
   const owner = {
     email: `qr.owner.${stamp}@example.com`,
     password: 'pit-mat-pass-1',
+    ageAttested: true as const,
     callsign: `qr_owner_${stamp}`.slice(0, 30),
   };
 

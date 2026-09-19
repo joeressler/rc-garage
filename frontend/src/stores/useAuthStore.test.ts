@@ -157,4 +157,41 @@ describe('useAuthStore', () => {
       isAuthenticated: false,
     });
   });
+
+  it('registers with ageAttested and persists only the JWT in localStorage', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify(envelope({ token: TOKEN, user: PROFILE }, 201)),
+          { status: 201, headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify(
+            envelope({ ...PROFILE, vehicleCount: 0, setupCount: 0 }),
+          ),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
+
+    await useAuthStore.getState().register({
+      email: 'trailboss@example.com',
+      password: 'password123',
+      callsign: 'TrailBoss',
+      ageAttested: true,
+    });
+
+    const [path, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+    expect(path).toBe('/api/garage/auth/register');
+    expect(JSON.parse(String(init.body))).toMatchObject({ ageAttested: true });
+    expect(window.localStorage.getItem('rc-garage-auth')).toContain(TOKEN);
+    expect(document.cookie).toBe('');
+
+    const persisted = JSON.parse(
+      window.localStorage.getItem('rc-garage-auth') ?? '{}',
+    ) as { state?: { token?: string; user?: unknown } };
+    expect(persisted.state?.token).toBe(TOKEN);
+    expect(persisted.state?.user).toBeUndefined();
+  });
 });

@@ -142,6 +142,7 @@ export async function runAdminModerationVerification(
   const driverOutlaw = {
     email: `outlaw.${stamp}@example.com`,
     password: 'password123',
+    ageAttested: true as const,
     callsign: `Outlaw_${stamp}`.slice(0, 30),
   };
 
@@ -151,12 +152,14 @@ export async function runAdminModerationVerification(
   const adminOperator = {
     email: adminEmail,
     password: 'password123',
+    ageAttested: true as const,
     callsign: `PitAdmin_${stamp}`.slice(0, 30),
   };
 
   const modStaff = {
     email: `marshall.${stamp}@example.com`,
     password: 'password123',
+    ageAttested: true as const,
     callsign: `Marshall_${stamp}`.slice(0, 30),
   };
 
