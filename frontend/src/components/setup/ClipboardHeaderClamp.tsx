@@ -1,6 +1,7 @@
 import { formatChassisStencil } from '../../lib/vehicle-labels';
 import { useGarageStore } from '../../stores/useGarageStore';
 import { useSetupStore } from '../../stores/useSetupStore';
+import { ClipboardTagsField } from './ClipboardTagsField';
 
 interface ClipboardHeaderClampProps {
   onInspectParentDiff?: () => void;
@@ -97,6 +98,8 @@ export function ClipboardHeaderClamp({ onInspectParentDiff }: ClipboardHeaderCla
               </p>
             ) : null}
           </div>
+
+          <ClipboardTagsField />
         </div>
 
         {/* Right Badges: Scrutineering Stamp & Fork Lineage */}

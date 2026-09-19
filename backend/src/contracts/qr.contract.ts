@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { FeedAuthor } from './feed.contract';
 import { FluidUnitEnum } from './setup.contract';
 import {
   ChassisElectronicsSchema,
@@ -57,6 +58,7 @@ export interface PublicInspectionSheet {
   shortUrl: string;
   calculatedFdr: number;
   batteryCellCount: number;
+  author: FeedAuthor;
   vehicle: PublicInspectionVehicle;
   frontShock: PublicInspectionShock;
   rearShock: PublicInspectionShock;

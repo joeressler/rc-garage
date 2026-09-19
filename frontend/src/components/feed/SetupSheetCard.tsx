@@ -1,5 +1,7 @@
+import { Link } from 'react-router-dom';
 import type { FeedItem } from '../../api/feed';
 import { formatFdr, VEHICLE_CLASS_LABELS } from '../../lib/vehicle-labels';
+import { DriverAvatar } from './DriverAvatar';
 
 interface SetupSheetCardProps {
   item: FeedItem;
@@ -21,6 +23,7 @@ export function SetupSheetCard({
 }: SetupSheetCardProps) {
   const { title, author, vehicle, calculatedFdr, frontBiasPercentage, surfaceType, forkCount, likeCount, isLikedByCaller } = item;
   const classLabel = VEHICLE_CLASS_LABELS[vehicle.class] ?? vehicle.class;
+  const visibleTags = (item.tags ?? []).slice(0, 3);
 
   return (
     <article
@@ -39,9 +42,13 @@ export function SetupSheetCard({
         {/* Card Header: Author Callout & Class Badge */}
         <div className="flex items-start justify-between gap-2 border-b border-metal-border pb-3">
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-widest text-hazard-orange">
+            <Link
+              to={`/u/${encodeURIComponent(author.callsign)}`}
+              className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-hazard-orange hover:text-readout-bright"
+            >
+              <DriverAvatar callsign={author.callsign} avatarUrl={author.avatarUrl} size="sm" />
               @{author.callsign}
-            </span>
+            </Link>
             <h3 className="mt-0.5 font-display text-base font-bold uppercase tracking-wider text-readout-bright">
               {title}
             </h3>
@@ -60,6 +67,19 @@ export function SetupSheetCard({
             {surfaceType.replace(/_/g, ' ')}
           </span>
         </div>
+
+        {visibleTags.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {visibleTags.map((tag) => (
+              <span
+                key={tag}
+                className="border border-metal-border bg-pit-black px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-readout-muted"
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
 
         {/* Telemetry Stats Grid */}
         <div className="mt-4 grid grid-cols-2 gap-2 border border-metal-border bg-pit-black/80 p-3">

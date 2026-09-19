@@ -1,3 +1,4 @@
+import { CopyPublicLinkButton } from '../feed/CopyPublicLinkButton';
 import { useSetupStore } from '../../stores/useSetupStore';
 
 interface ClipboardActionBarProps {
@@ -84,6 +85,8 @@ export function ClipboardActionBar({
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-3">
+          {activeSetup?.qrSlug ? <CopyPublicLinkButton qrSlug={activeSetup.qrSlug} /> : null}
+
           {/* Secondary Action: Print Chassis QR */}
           {hasSavedSlug && onPrintQr ? (
             <button

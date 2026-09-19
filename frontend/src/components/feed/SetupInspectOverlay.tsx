@@ -1,7 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { ApiError } from '../../api/http';
 import {
   apiResolveInspection,
+  type PublicInspectionAuthor,
   type PublicInspectionVehicle,
 } from '../../api/qr';
 import {
@@ -21,6 +23,8 @@ import {
 } from '../../api/vehicles';
 import { formatFdr, formatShock, VEHICLE_CLASS_LABELS } from '../../lib/vehicle-labels';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { CopyPublicLinkButton } from './CopyPublicLinkButton';
+import { DriverAvatar } from './DriverAvatar';
 import type { ForkToGarageSource } from './ForkToGarageModal';
 import { ReportSetupModal, type ReportTarget } from './ReportSetupModal';
 
@@ -29,6 +33,7 @@ interface SetupInspectOverlayProps {
   setupId?: string | null;
   slug?: string | null;
   authorCallsign?: string | null;
+  authorAvatarUrl?: string | null;
   onClose: () => void;
   onRequestFork: (source: ForkToGarageSource) => void;
   onRequestAuth: () => void;
@@ -42,6 +47,7 @@ export function SetupInspectOverlay({
   setupId,
   slug,
   authorCallsign,
+  authorAvatarUrl,
   onClose,
   onRequestFork,
   onRequestAuth,
@@ -51,6 +57,7 @@ export function SetupInspectOverlay({
   const currentUserId = useAuthStore((state) => state.user?.id);
   const [setup, setSetup] = useState<SetupEntity | null>(null);
   const [vehicle, setVehicle] = useState<PublicInspectionVehicle | null>(null);
+  const [resolvedAuthor, setResolvedAuthor] = useState<PublicInspectionAuthor | null>(null);
   const [missing, setMissing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
@@ -63,6 +70,7 @@ export function SetupInspectOverlay({
     let cancelled = false;
     setSetup(null);
     setVehicle(null);
+    setResolvedAuthor(null);
     setMissing(false);
     setLoadError(null);
 
@@ -76,6 +84,7 @@ export function SetupInspectOverlay({
         }
         setSetup(loaded.setup);
         setVehicle(loaded.vehicle);
+        setResolvedAuthor(loaded.author);
       } catch (err: unknown) {
         if (cancelled) {
           return;
@@ -97,6 +106,9 @@ export function SetupInspectOverlay({
     return null;
   }
 
+  const displayCallsign = authorCallsign ?? resolvedAuthor?.callsign ?? null;
+  const displayAvatarUrl = authorAvatarUrl ?? resolvedAuthor?.avatarUrl ?? null;
+
   const handleFork = () => {
     if (!setup) {
       return;
@@ -104,7 +116,7 @@ export function SetupInspectOverlay({
     onRequestFork({
       id: setup.id,
       title: setup.title,
-      authorCallsign: authorCallsign ?? undefined,
+      authorCallsign: displayCallsign ?? undefined,
     });
   };
 
@@ -154,7 +166,8 @@ export function SetupInspectOverlay({
           <InspectedSheet
             setup={setup}
             vehicle={vehicle}
-            authorCallsign={authorCallsign}
+            authorCallsign={displayCallsign}
+            authorAvatarUrl={displayAvatarUrl}
             canReport={setup.userId !== currentUserId}
             onClose={onClose}
             onFork={handleFork}
@@ -169,7 +182,7 @@ export function SetupInspectOverlay({
               requestReport({
                 targetType: 'user',
                 targetId: setup.userId,
-                label: authorCallsign ? `@${authorCallsign}` : 'Driver',
+                label: displayCallsign ? `@${displayCallsign}` : 'Driver',
               })
             }
           />
@@ -187,25 +200,33 @@ export function SetupInspectOverlay({
 async function loadBySlug(
   slug: string,
   token?: string | null,
-): Promise<{ setup: SetupEntity; vehicle: PublicInspectionVehicle | null }> {
+): Promise<{
+  setup: SetupEntity;
+  vehicle: PublicInspectionVehicle | null;
+  author: PublicInspectionAuthor | null;
+}> {
   const sheet = await apiResolveInspection(slug);
   const setup = await apiGetSetup(sheet.setupId, token);
-  return { setup, vehicle: sheet.vehicle };
+  return { setup, vehicle: sheet.vehicle, author: sheet.author ?? null };
 }
 
 async function loadBySetupId(
   setupId: string,
   token?: string | null,
-): Promise<{ setup: SetupEntity; vehicle: PublicInspectionVehicle | null }> {
+): Promise<{
+  setup: SetupEntity;
+  vehicle: PublicInspectionVehicle | null;
+  author: PublicInspectionAuthor | null;
+}> {
   const setup = await apiGetSetup(setupId, token);
   if (!setup.qrSlug) {
-    return { setup, vehicle: null };
+    return { setup, vehicle: null, author: null };
   }
   try {
     const sheet = await apiResolveInspection(setup.qrSlug);
-    return { setup, vehicle: sheet.vehicle };
+    return { setup, vehicle: sheet.vehicle, author: sheet.author ?? null };
   } catch {
-    return { setup, vehicle: null };
+    return { setup, vehicle: null, author: null };
   }
 }
 
@@ -213,6 +234,7 @@ function InspectedSheet({
   setup,
   vehicle,
   authorCallsign,
+  authorAvatarUrl,
   canReport,
   onClose,
   onFork,
@@ -222,6 +244,7 @@ function InspectedSheet({
   setup: SetupEntity;
   vehicle: PublicInspectionVehicle | null;
   authorCallsign?: string | null;
+  authorAvatarUrl?: string | null;
   canReport: boolean;
   onClose: () => void;
   onFork: () => void;
@@ -250,7 +273,17 @@ function InspectedSheet({
           ) : null}
           {authorCallsign ? (
             <p className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-hazard-orange">
-              <span>@{authorCallsign}</span>
+              <Link
+                to={`/u/${encodeURIComponent(authorCallsign)}`}
+                className="inline-flex items-center gap-2 hover:text-readout-bright"
+              >
+                <DriverAvatar
+                  callsign={authorCallsign}
+                  avatarUrl={authorAvatarUrl ?? null}
+                  size="sm"
+                />
+                @{authorCallsign}
+              </Link>
               {canReport ? (
                 <button
                   type="button"
@@ -377,6 +410,7 @@ function InspectedSheet({
       <div className="flex flex-col gap-3 border-t border-metal-border pt-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">
           <BackToFeedButton onClose={onClose} />
+          {setup.qrSlug ? <CopyPublicLinkButton qrSlug={setup.qrSlug} /> : null}
           {canReport ? (
             <button
               type="button"

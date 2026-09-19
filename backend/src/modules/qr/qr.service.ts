@@ -21,6 +21,8 @@ interface PublicInspectionRow {
   qr_slug: string;
   calculated_fdr: string | number;
   settings: SetupSettings;
+  callsign: string;
+  avatar_url: string | null;
   vehicle_name: string;
   make: string;
   model: string;
@@ -80,6 +82,8 @@ export class QrService {
          s.qr_slug,
          s.calculated_fdr,
          s.settings,
+         u.callsign,
+         u.avatar_url,
          v.name AS vehicle_name,
          v.make,
          v.model,
@@ -88,6 +92,7 @@ export class QrService {
          v.electronics
        FROM setups s
        JOIN vehicles v ON v.id = s.vehicle_id
+       JOIN users u ON u.id = s.user_id
        WHERE s.qr_slug = $1
          AND s.is_public = TRUE
          AND s.is_hidden = FALSE`,
@@ -109,6 +114,10 @@ export class QrService {
       shortUrl,
       calculatedFdr: Number(row.calculated_fdr),
       batteryCellCount: settings.drivetrain.batteryCellCount ?? 3,
+      author: {
+        callsign: row.callsign,
+        avatarUrl: row.avatar_url,
+      },
       vehicle: {
         name: row.vehicle_name,
         make: row.make,

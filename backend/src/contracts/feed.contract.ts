@@ -87,6 +87,7 @@ export interface FeedItem {
   likeCount: number;
   isLikedByCaller: boolean;
   qrSlug: string;
+  tags: string[];
   createdAt: string;
 }
 

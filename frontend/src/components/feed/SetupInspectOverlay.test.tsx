@@ -1,4 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PublicInspectionSheet } from '../../api/qr';
 import { defaultSetupSettings, type SetupEntity } from '../../api/setups';
@@ -50,6 +52,7 @@ const INSPECTION: PublicInspectionSheet = {
   shortUrl: '/s/v9k2pq1x8m',
   calculatedFdr: SETUP.calculatedFdr,
   batteryCellCount: 3,
+  author: { callsign: 'TrailBoss', avatarUrl: null },
   vehicle: {
     name: 'Sendero Trail Rig',
     make: 'Element',
@@ -78,6 +81,10 @@ const INSPECTION: PublicInspectionSheet = {
   rearTire: { brand: 'Pro-Line', model: 'Hyrax 1.9', compound: 'Predator' },
   verified: true,
 };
+
+function renderOverlay(ui: ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
 
 function stubInspectFetch() {
   vi.stubGlobal(
@@ -131,7 +138,7 @@ describe('SetupInspectOverlay', () => {
     const onClose = vi.fn();
     const onRequestFork = vi.fn();
 
-    render(
+    renderOverlay(
       <SetupInspectOverlay
         open
         setupId={SETUP.id}
@@ -154,7 +161,7 @@ describe('SetupInspectOverlay', () => {
   });
 
   it('renders named electronics as shop links when a product URL is set', async () => {
-    render(
+    renderOverlay(
       <SetupInspectOverlay
         open
         slug={SETUP.qrSlug}
@@ -178,7 +185,7 @@ describe('SetupInspectOverlay', () => {
     const onClose = vi.fn();
     const onRequestFork = vi.fn();
 
-    render(
+    renderOverlay(
       <SetupInspectOverlay
         open
         slug={SETUP.qrSlug}
@@ -192,7 +199,7 @@ describe('SetupInspectOverlay', () => {
     expect(onRequestFork).toHaveBeenCalledWith({
       id: SETUP.id,
       title: SETUP.title,
-      authorCallsign: undefined,
+      authorCallsign: 'TrailBoss',
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Back to Community Feed/i }));
@@ -202,7 +209,7 @@ describe('SetupInspectOverlay', () => {
   it('shows a pit inspection 404 for unknown slugs', async () => {
     const onClose = vi.fn();
 
-    render(
+    renderOverlay(
       <SetupInspectOverlay
         open
         slug="deadslug12"

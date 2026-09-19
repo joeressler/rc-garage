@@ -45,6 +45,8 @@ export function CommunityFeedWorkbench({ onRequestAuth }: CommunityFeedWorkbench
   const [forkSource, setForkSource] = useState<ForkToGarageSource | null>(null);
 
   const [searchInput, setSearchInput] = useState(feedFilters.vehicleModel ?? '');
+  const [tagInput, setTagInput] = useState(feedFilters.tag ?? '');
+  const [locationInput, setLocationInput] = useState(feedFilters.locationTag ?? '');
 
   const inspectedFeedItem = inspectSetupId
     ? feedSetups.find((item) => item.id === inspectSetupId)
@@ -58,6 +60,8 @@ export function CommunityFeedWorkbench({ onRequestAuth }: CommunityFeedWorkbench
     feedFilters.surfaceType,
     feedFilters.vehicleClass,
     feedFilters.vehicleModel,
+    feedFilters.tag,
+    feedFilters.locationTag,
   ]);
 
   const handleSelectSurface = (surface?: SurfaceType) => {
@@ -77,12 +81,27 @@ export function CommunityFeedWorkbench({ onRequestAuth }: CommunityFeedWorkbench
     setFeedFilters({ vehicleModel: model.trim() || undefined });
   };
 
+  const handleChangeTag = (tag: string) => {
+    setTagInput(tag);
+    const normalized = tag.trim().toLowerCase();
+    setFeedFilters({ tag: normalized || undefined });
+  };
+
+  const handleChangeLocationTag = (locationTag: string) => {
+    setLocationInput(locationTag);
+    setFeedFilters({ locationTag: locationTag.trim() || undefined });
+  };
+
   const handleResetFilters = () => {
     setSearchInput('');
+    setTagInput('');
+    setLocationInput('');
     setFeedFilters({
       surfaceType: undefined,
       vehicleClass: undefined,
       vehicleModel: undefined,
+      tag: undefined,
+      locationTag: undefined,
       sortBy: 'newest',
     });
   };
@@ -177,10 +196,14 @@ export function CommunityFeedWorkbench({ onRequestAuth }: CommunityFeedWorkbench
         vehicleClass={feedFilters.vehicleClass}
         sortBy={feedFilters.sortBy ?? 'newest'}
         searchModel={searchInput}
+        tag={tagInput}
+        locationTag={locationInput}
         onSelectSurface={handleSelectSurface}
         onSelectClass={handleSelectClass}
         onSelectSort={handleSelectSort}
         onChangeModel={handleChangeModel}
+        onChangeTag={handleChangeTag}
+        onChangeLocationTag={handleChangeLocationTag}
         onReset={handleResetFilters}
       />
 
@@ -245,6 +268,7 @@ export function CommunityFeedWorkbench({ onRequestAuth }: CommunityFeedWorkbench
         setupId={inspectSetupId}
         slug={slug}
         authorCallsign={inspectedFeedItem?.author.callsign}
+        authorAvatarUrl={inspectedFeedItem?.author.avatarUrl}
         onClose={handleCloseInspect}
         onRequestFork={handleOpenFork}
         onRequestAuth={onRequestAuth}

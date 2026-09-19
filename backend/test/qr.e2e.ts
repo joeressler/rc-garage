@@ -277,6 +277,10 @@ async function main(): Promise<void> {
       'rear tire compound should pass through',
     );
     assert(sheet?.verified === true, 'public inspection sheets are scrutineering-verified');
+    assert(
+      sheet?.author.callsign === owner.callsign,
+      'inspection sheet should include the author callsign',
+    );
 
     const privateQr = await requestBytes(baseUrl, `/setups/${privateSetup.id}/qr`);
     assert(

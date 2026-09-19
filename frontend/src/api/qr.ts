@@ -14,6 +14,11 @@ export type VehicleClass =
   | 'drift_rwd'
   | 'monster_truck';
 
+export interface PublicInspectionAuthor {
+  callsign: string;
+  avatarUrl: string | null;
+}
+
 export interface PublicInspectionVehicle {
   name: string;
   make: string;
@@ -41,6 +46,7 @@ export interface PublicInspectionSheet {
   shortUrl: string;
   calculatedFdr: number;
   batteryCellCount: number;
+  author: PublicInspectionAuthor;
   vehicle: PublicInspectionVehicle;
   frontShock: PublicInspectionShock;
   rearShock: PublicInspectionShock;

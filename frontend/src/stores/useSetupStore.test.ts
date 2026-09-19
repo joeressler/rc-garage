@@ -429,6 +429,7 @@ describe('useSetupStore', () => {
       likeCount: 12,
       isLikedByCaller: false,
       qrSlug: 'slug123',
+      tags: ['moab'],
       createdAt: '2026-09-17T00:00:00Z',
     };
 
@@ -465,6 +466,7 @@ describe('useSetupStore', () => {
       likeCount: 12,
       isLikedByCaller: false,
       qrSlug: 'slug123',
+      tags: ['moab'],
       createdAt: '2026-09-17T00:00:00Z',
     };
 

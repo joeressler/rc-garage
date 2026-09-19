@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { FeedModule } from './modules/feed/feed.module';
+import { ProfilesModule } from './modules/profiles/profiles.module';
 import { QrModule } from './modules/qr/qr.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { SetupsModule } from './modules/setups/setups.module';
@@ -33,6 +34,7 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
     SetupsModule,
     QrModule,
     FeedModule,
+    ProfilesModule,
     ReportsModule,
     AdminModule,
   ],

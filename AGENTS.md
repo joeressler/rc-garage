@@ -175,6 +175,7 @@ Before submitting any code change:
 - Foreign setups from QR or the community feed must inspect in a read-only overlay over the feed; do not load them into the driver's active clipboard until they fork onto an owned chassis.
 - Chassis electronics belong on the Fleet Garage vehicle (one radio box per chassis) with optional product URLs that inspect views hyperlink; they are not per-setup-sheet telemetry.
 - Setup-clipboard save validation must visually highlight the invalid telemetry fields; do not block save with "Fix highlighted telemetry inputs" and no highlights.
+- Do not implement SMTP, email verification, forgot/reset stubs, or `EmailVerifiedGuard`; register bot friction is Google reCAPTCHA v2 (not a homemade captcha). Forgot/reset waits until a real mailer exists.
 
 ## Learned Workspace Facts
 
@@ -182,3 +183,5 @@ Before submitting any code change:
 - Docker frontend nginx (`frontend/docker/frontend-nginx.conf`) must `proxy_pass` `/api/` to `rc-backend:5742`; without it, API POSTs hit SPA `try_files` and return 405.
 - Chassis electronics live in `vehicles.electronics` JSONB (migration 003), edited through `ChassisElectronicsFields`; steering servos use `torqueKg`; forking a tune does not copy the author's electronics onto the recipient bay.
 - `SetupInspectOverlay` on the community feed is the inspect surface for foreign and QR sheets; owned sheets stay on `SetupClipboardView` with `ClipboardSetupSwitcher` to change setups on the same chassis or list all account setups.
+- `POST /auth/register` requires `ageAttested`, `acceptedLegal`, and `recaptchaToken`; local and e2e use `RECAPTCHA_SECRET_KEY=dev-bypass` with token `dev-bypass` (no live siteverify).
+- Driver reports live in `content_reports` (migration 005), filed from `ReportSetupModal` on `SetupInspectOverlay` and queued in `ReportQueuePanel` on the Scrutineering Desk; reuse hide/suspend/audit rather than a second admin product.

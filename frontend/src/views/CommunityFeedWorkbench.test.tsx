@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FeedItem } from '../api/feed';
@@ -37,6 +37,7 @@ const FEED_ITEM: FeedItem = {
   likeCount: 9,
   isLikedByCaller: false,
   qrSlug: 'v9k2pq1x8m',
+  tags: ['moab', 'comp'],
   createdAt: '2026-09-17T00:00:00Z',
 };
 
@@ -69,6 +70,7 @@ const INSPECTION: PublicInspectionSheet = {
   shortUrl: `/s/${FEED_ITEM.qrSlug}`,
   calculatedFdr: FEED_ITEM.calculatedFdr,
   batteryCellCount: 3,
+  author: { callsign: 'TrailBoss', avatarUrl: null },
   vehicle: {
     name: 'Sendero Trail Rig',
     make: FEED_ITEM.vehicle.make,
@@ -255,5 +257,30 @@ describe('CommunityFeedWorkbench', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Global RC Setup Workbench')).toBeInTheDocument();
     expect(screen.queryByTestId('clipboard-route')).not.toBeInTheDocument();
+  });
+
+  it('maps tag and location filters onto the feed query', async () => {
+    renderFeed();
+    await screen.findByText('Moab Slickrock Spec');
+
+    fireEvent.change(screen.getByPlaceholderText('e.g. moab'), {
+      target: { value: 'Moab' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('e.g. Moab Rim'), {
+      target: { value: 'Moab Rim' },
+    });
+
+    await waitFor(() => {
+      const urls = vi.mocked(fetch).mock.calls.map((call) => String(call[0]));
+      expect(
+        urls.some((url) => {
+          const parsed = new URL(url, 'http://localhost');
+          return (
+            parsed.searchParams.get('tag') === 'moab' &&
+            parsed.searchParams.get('locationTag') === 'Moab Rim'
+          );
+        }),
+      ).toBe(true);
+    });
   });
 });

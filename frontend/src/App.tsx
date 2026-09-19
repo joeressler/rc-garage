@@ -10,6 +10,7 @@ import { SetupClipboardView } from './views/SetupClipboardView';
 import { StickersWorkbenchView } from './views/StickersWorkbenchView';
 import { AdminConsoleWorkbench } from './views/AdminConsoleWorkbench';
 import { LegalDocumentView } from './views/LegalDocumentView';
+import { PublicDriverProfileView } from './views/PublicDriverProfileView';
 
 /**
  * Purpose: register pit-mat workbench drawers, including QR slug inspection over the community feed.
@@ -39,11 +40,13 @@ export function App() {
     <>
       <Routes>
         <Route element={<PitMatAppLayout onRequestAuth={openAuth} />}>
-          <Route path="/" element={<Navigate to="/garage" replace />} />
+          <Route path="/" element={<Navigate to="/feed" replace />} />
           <Route path="/garage" element={<GarageFleetView onRequestAuth={openAuth} />} />
           <Route path="/clipboard" element={<SetupClipboardView onRequestAuth={openAuth} />} />
           <Route path="/feed" element={<CommunityFeedWorkbench onRequestAuth={openAuth} />} />
+          {/* /s/:slug inspection is owned by CommunityFeedWorkbench + SetupInspectOverlay, not a standalone page. */}
           <Route path="/s/:slug" element={<CommunityFeedWorkbench onRequestAuth={openAuth} />} />
+          <Route path="/u/:callsign" element={<PublicDriverProfileView onRequestAuth={openAuth} />} />
           <Route path="/stickers" element={<StickersWorkbenchView onRequestAuth={openAuth} />} />
           <Route path="/admin" element={<AdminConsoleWorkbench onRequestAuth={openAuth} />} />
           <Route path="/legal/terms" element={<LegalDocumentView />} />

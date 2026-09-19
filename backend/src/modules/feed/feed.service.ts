@@ -18,6 +18,7 @@ interface FeedRow {
   fork_count: string | number;
   like_count: string | number;
   qr_slug: string;
+  tags: string[] | null;
   created_at: Date | string;
   callsign: string;
   avatar_url: string | null;
@@ -44,6 +45,7 @@ export class FeedService {
   async list(
     query: FeedQueryDto,
     callerId?: string,
+    scope?: { authorUserId?: string },
   ): Promise<PaginatedFeedResponse> {
     const params: unknown[] = [];
     const where = ['s.is_public = TRUE', 's.is_hidden = FALSE'];
@@ -57,6 +59,11 @@ export class FeedService {
          WHERE sl.setup_id = s.id
            AND sl.user_id = $1
        ) AS is_liked_by_caller`;
+    }
+
+    if (scope?.authorUserId) {
+      params.push(scope.authorUserId);
+      where.push(`s.user_id = $${params.length}::uuid`);
     }
 
     this.appendEqualityFilter(where, params, 'LOWER(v.make)', query.make, true);
@@ -90,7 +97,7 @@ export class FeedService {
     }
 
     if (query.tag) {
-      params.push([query.tag]);
+      params.push([query.tag.toLowerCase()]);
       where.push(`s.tags @> $${params.length}::text[]`);
     }
 
@@ -116,6 +123,7 @@ export class FeedService {
          s.fork_count,
          s.like_count,
          s.qr_slug,
+         s.tags,
          s.created_at,
          u.callsign,
          u.avatar_url,
@@ -221,6 +229,7 @@ export class FeedService {
       likeCount: Number(row.like_count ?? 0),
       isLikedByCaller: Boolean(row.is_liked_by_caller),
       qrSlug: row.qr_slug,
+      tags: Array.isArray(row.tags) ? row.tags : [],
       createdAt: this.toIso(row.created_at),
     };
   }

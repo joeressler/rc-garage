@@ -9,10 +9,14 @@ interface FeedFilterDrawerProps {
   vehicleClass?: VehicleClass;
   sortBy: FeedSortBy;
   searchModel?: string;
+  tag?: string;
+  locationTag?: string;
   onSelectSurface: (surface?: SurfaceType) => void;
   onSelectClass: (vehicleClass?: VehicleClass) => void;
   onSelectSort: (sort: FeedSortBy) => void;
   onChangeModel: (model: string) => void;
+  onChangeTag: (tag: string) => void;
+  onChangeLocationTag: (locationTag: string) => void;
   onReset: () => void;
 }
 
@@ -24,14 +28,23 @@ export function FeedFilterDrawer({
   vehicleClass,
   sortBy,
   searchModel = '',
+  tag = '',
+  locationTag = '',
   onSelectSurface,
   onSelectClass,
   onSelectSort,
   onChangeModel,
+  onChangeTag,
+  onChangeLocationTag,
   onReset,
 }: FeedFilterDrawerProps) {
   const hasActiveFilters = Boolean(
-    surfaceType || vehicleClass || (searchModel && searchModel.trim() !== '') || sortBy !== 'newest',
+    surfaceType ||
+      vehicleClass ||
+      (searchModel && searchModel.trim() !== '') ||
+      (tag && tag.trim() !== '') ||
+      (locationTag && locationTag.trim() !== '') ||
+      sortBy !== 'newest',
   );
 
   return (
@@ -91,8 +104,33 @@ export function FeedFilterDrawer({
               onChange={(e) => onChangeModel(e.target.value)}
               placeholder="e.g. Phoenix, SCX10, Enduro"
               className="mt-1 w-full border border-metal-border bg-pit-black px-3 py-2 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
-            >
-            </input>
+            />
+          </label>
+
+          <label className="mt-3 block">
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-readout-muted">
+              Filter by Tag
+            </span>
+            <input
+              type="text"
+              value={tag}
+              onChange={(e) => onChangeTag(e.target.value)}
+              placeholder="e.g. moab"
+              className="mt-1 w-full border border-metal-border bg-pit-black px-3 py-2 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
+            />
+          </label>
+
+          <label className="mt-3 block">
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-readout-muted">
+              Filter by Location
+            </span>
+            <input
+              type="text"
+              value={locationTag}
+              onChange={(e) => onChangeLocationTag(e.target.value)}
+              placeholder="e.g. Moab Rim"
+              className="mt-1 w-full border border-metal-border bg-pit-black px-3 py-2 font-mono text-xs text-readout-bright outline-none focus:border-hazard-orange"
+            />
           </label>
         </div>
 
