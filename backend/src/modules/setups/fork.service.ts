@@ -15,6 +15,7 @@ import {
   SetupSettingsSchema,
 } from '../../contracts/setup.contract';
 import { DatabaseService } from '../../database/database.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { applyDerivedTelemetry } from './utils/telemetry-math.util';
 
 interface SetupRow {
@@ -70,7 +71,10 @@ const TITLE_MAX = 100;
  */
 @Injectable()
 export class ForkService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async fork(
     userId: string,
@@ -222,10 +226,24 @@ export class ForkService {
             input.tags,
           ],
         );
-        await client.query(
-          `UPDATE setups SET fork_count = fork_count + 1 WHERE id = $1`,
+        const parentRes = await client.query<{
+          user_id: string;
+          is_public: boolean;
+        }>(
+          `UPDATE setups SET fork_count = fork_count + 1 WHERE id = $1
+           RETURNING user_id, is_public`,
           [input.forkedFromSetupId],
         );
+        const parent = parentRes.rows[0];
+        if (parent) {
+          await this.notifications.insertOnClient(client, {
+            type: 'fork',
+            recipientUserId: parent.user_id,
+            actorUserId: input.userId,
+            setupId: input.forkedFromSetupId,
+            isPublic: parent.is_public,
+          });
+        }
         await client.query('COMMIT');
         return this.toEntity(inserted.rows[0]);
       } catch (error) {

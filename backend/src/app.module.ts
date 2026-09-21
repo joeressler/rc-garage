@@ -9,6 +9,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { FeedModule } from './modules/feed/feed.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ProfilesModule } from './modules/profiles/profiles.module';
 import { QrModule } from './modules/qr/qr.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -34,6 +35,7 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
     VehiclesModule,
     SetupsModule,
     CommentsModule,
+    NotificationsModule,
     QrModule,
     FeedModule,
     ProfilesModule,

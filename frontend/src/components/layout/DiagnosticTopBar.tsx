@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useGarageStore } from '../../stores/useGarageStore';
 import { AccountSettingsModal } from '../auth/AccountSettingsModal';
+import { NotificationBell } from './NotificationBell';
 
 interface DiagnosticTopBarProps {
   onRequestAuth: () => void;
@@ -68,6 +69,7 @@ export function DiagnosticTopBar({ onRequestAuth }: DiagnosticTopBarProps) {
 
         {isAuthenticated ? (
           <>
+            <NotificationBell />
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}

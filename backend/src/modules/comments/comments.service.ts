@@ -14,6 +14,7 @@ import {
   SetupComment,
 } from '../../contracts/comment.contract';
 import { DatabaseService } from '../../database/database.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const COMMENT_RATE_WINDOW_MS = 15_000;
 const PRIVATE_SHEET_COMMENT_MESSAGE =
@@ -41,7 +42,10 @@ interface CommentDbRow {
  */
 @Injectable()
 export class CommentsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async list(
     setupId: string,
@@ -173,6 +177,19 @@ export class CommentsService {
       if (!row) {
         throw new BadRequestException('Unable to create comment');
       }
+
+      const setup = setupRes.rows[0];
+      if (!setup) {
+        throw new NotFoundException('Setup not found');
+      }
+      await this.notifications.insertOnClient(client, {
+        type: 'comment',
+        recipientUserId: setup.user_id,
+        actorUserId: callerId,
+        setupId,
+        commentId,
+        isPublic: setup.is_public,
+      });
 
       await client.query('COMMIT');
       return this.toComment(row, callerId);

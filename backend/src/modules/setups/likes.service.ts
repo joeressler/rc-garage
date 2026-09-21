@@ -1,13 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { LikeToggleResult } from '../../contracts/feed.contract';
 import { DatabaseService } from '../../database/database.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 /**
  * Purpose: toggle community endorsements without drifting denormalized like counts.
  */
 @Injectable()
 export class LikesService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async toggle(userId: string, setupId: string): Promise<LikeToggleResult> {
     const client = await this.database.getClient();
@@ -64,6 +68,13 @@ export class LikesService {
          RETURNING like_count`,
         [setupId],
       );
+      await this.notifications.insertOnClient(client, {
+        type: 'like',
+        recipientUserId: setup.user_id,
+        actorUserId: userId,
+        setupId,
+        isPublic: setup.is_public,
+      });
       await client.query('COMMIT');
       return {
         liked: true,

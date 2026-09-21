@@ -31,6 +31,7 @@ import {
 } from '../../contracts/admin.contract';
 import { AuthenticatedUser, UserRole } from '../../contracts/auth.contract';
 import { DatabaseService } from '../../database/database.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 interface UserDbRow {
   id: string;
@@ -120,7 +121,10 @@ interface ReportDbRow {
  */
 @Injectable()
 export class AdminService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async getOverview(): Promise<AdminOverview> {
     const result = await this.database.query<{
@@ -888,6 +892,14 @@ export class AdminService {
       if (!updated) {
         throw new NotFoundException('Report not found');
       }
+
+      await this.notifications.insertOnClient(client, {
+        type: 'report_outcome',
+        recipientUserId: updated.reporter_user_id,
+        actorUserId: actor.id,
+        reportId: updated.id,
+        setupId: report.target_type === 'setup' ? report.target_id : null,
+      });
 
       await client.query('COMMIT');
       return this.toReportSummary(updated);

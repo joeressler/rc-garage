@@ -4,6 +4,7 @@ import { AuthModal } from './components/auth/AuthModal';
 import { PitMatAppLayout } from './components/layout/PitMatAppLayout';
 import { useAuthStore } from './stores/useAuthStore';
 import { useGarageStore } from './stores/useGarageStore';
+import { useNotificationStore } from './stores/useNotificationStore';
 import { CommunityFeedWorkbench } from './views/CommunityFeedWorkbench';
 import { GarageFleetView } from './views/GarageFleetView';
 import { SetupClipboardView } from './views/SetupClipboardView';
@@ -20,6 +21,7 @@ export function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const fetchVehicles = useGarageStore((state) => state.fetchVehicles);
   const resetGarage = useGarageStore((state) => state.reset);
+  const resetNotifications = useNotificationStore((state) => state.reset);
   const [authOpen, setAuthOpen] = useState(false);
   const openAuth = useCallback(() => setAuthOpen(true), []);
   const closeAuth = useCallback(() => setAuthOpen(false), []);
@@ -34,7 +36,8 @@ export function App() {
       return;
     }
     resetGarage();
-  }, [isAuthenticated, fetchVehicles, resetGarage]);
+    resetNotifications();
+  }, [isAuthenticated, fetchVehicles, resetGarage, resetNotifications]);
 
   return (
     <>

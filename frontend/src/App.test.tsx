@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { useAuthStore } from './stores/useAuthStore';
 import { useGarageStore } from './stores/useGarageStore';
+import { useNotificationStore } from './stores/useNotificationStore';
 import { useSetupStore } from './stores/useSetupStore';
 
 function envelope<T>(data: T, statusCode = 200) {
@@ -31,6 +32,7 @@ function resetStores() {
     error: null,
   });
   useGarageStore.getState().reset();
+  useNotificationStore.getState().reset();
   useSetupStore.getState().reset();
   window.localStorage.removeItem('rc-garage-auth');
 }

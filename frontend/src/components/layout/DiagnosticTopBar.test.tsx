@@ -1,8 +1,26 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useGarageStore } from '../../stores/useGarageStore';
+import { useNotificationStore } from '../../stores/useNotificationStore';
 import { DiagnosticTopBar } from './DiagnosticTopBar';
+
+function envelope<T>(data: T, statusCode = 200) {
+  return {
+    success: true as const,
+    statusCode,
+    data,
+    timestamp: '2026-09-16T00:00:00.000Z',
+  };
+}
+
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
 
 describe('DiagnosticTopBar', () => {
   beforeEach(() => {
@@ -23,6 +41,11 @@ describe('DiagnosticTopBar', () => {
       error: null,
     });
     useGarageStore.getState().reset();
+    useNotificationStore.getState().reset();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(envelope({ unreadCount: 0 }))),
+    );
   });
 
   afterEach(() => {
@@ -34,10 +57,16 @@ describe('DiagnosticTopBar', () => {
       error: null,
     });
     useGarageStore.getState().reset();
+    useNotificationStore.getState().reset();
+    vi.unstubAllGlobals();
   });
 
   it('opens account settings from the authenticated Settings control', () => {
-    render(<DiagnosticTopBar onRequestAuth={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <DiagnosticTopBar onRequestAuth={vi.fn()} />
+      </MemoryRouter>,
+    );
 
     expect(screen.queryByRole('dialog', { name: /account settings/i })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /settings/i }));
